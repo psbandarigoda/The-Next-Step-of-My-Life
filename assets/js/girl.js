@@ -219,6 +219,7 @@
       e.preventDefault();
       const date = document.getElementById("dateInput").value;
       const time = document.getElementById("timeInput").value;
+      const whatsapp = document.getElementById("whatsappInput").value.trim();
       const note = document.getElementById("noteInput").value.trim();
       const readableDate = date
         ? new Date(`${date}T00:00:00`).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })
@@ -235,16 +236,19 @@
         readableTime,
         treat: answers.treat,
         mood: answers.mood,
+        whatsapp,
         note,
         submittedAt: new Date().toISOString(),
       };
 
       saveResponseLocally(response);
 
-      finalMessage.textContent = `So it is a ${answers.mood} date on ${readableDate} at ${readableTime}, with ${answers.treat}. I promise to make ${profile.name} smile from the first minute to the last.`;
+      document.querySelector("[data-field='finaleTitle']").textContent = "Yes, our date is beautifully secured.";
+      finalMessage.textContent = `Beautiful. Our date is secured for ${readableDate} at ${readableTime}. We will meet for ${answers.treat}, keep it ${answers.mood}, and I promise to make that day feel special for you.`;
 
       setupDelivery(profile, response, replyLink, downloadBtn);
 
+      document.body.classList.add("response-complete");
       finalCard.classList.remove("hidden");
       finalCard.classList.add("reveal");
       confettiHearts();
@@ -252,6 +256,7 @@
     });
 
     restartBtn.addEventListener("click", () => {
+      document.body.classList.remove("response-complete");
       document.querySelector(".hero").scrollIntoView({ behavior: "smooth" });
     });
   }
@@ -261,6 +266,7 @@
     const human =
       `Yes! I will go on a date with you. ` +
       `Let's make it ${response.mood} with ${response.treat} on ${response.readableDate} at ${response.readableTime}.` +
+      (response.whatsapp ? ` My WhatsApp: ${response.whatsapp}.` : "") +
       (response.note ? ` Note: ${response.note}` : "");
     const message = `${human}\n\n(Answer code for ${profile.name}: ${code})`;
 

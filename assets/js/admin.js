@@ -277,6 +277,7 @@
         <td><strong>${escapeHtml(r.name)}</strong><br><span class="slug">${escapeHtml(r.slug)}</span></td>
         <td><span class="pill ${r.answer === "yes" ? "yes" : "no"}">${escapeHtml(r.answer || "-")}</span></td>
         <td>${escapeHtml(when)}</td>
+        <td>${escapeHtml(r.whatsapp || "-")}</td>
         <td>${escapeHtml(r.treat || "-")}</td>
         <td>${escapeHtml(r.mood || "-")}</td>
         <td>${escapeHtml(r.note || "-")}</td>
@@ -290,7 +291,7 @@
     const local = readLocalResponses();
     const unique = new Map();
     saved.concat(local).forEach((row) => {
-      const key = `${row.slug}|${row.submittedAt}|${row.date}|${row.time}|${row.treat}|${row.mood}|${row.note}`;
+      const key = `${row.slug}|${row.submittedAt}|${row.date}|${row.time}|${row.whatsapp}|${row.treat}|${row.mood}|${row.note}`;
       unique.set(key, row);
     });
     return Array.from(unique.values());
@@ -332,6 +333,7 @@
       answer: childText(r, "answer"),
       date: childText(r, "date"),
       time: childText(r, "time"),
+      whatsapp: childText(r, "whatsapp"),
       treat: childText(r, "treat"),
       mood: childText(r, "mood"),
       note: childText(r, "note"),
@@ -344,7 +346,7 @@
       toast("Nothing to export yet.", "error");
       return;
     }
-    const headers = ["name", "slug", "answer", "date", "time", "treat", "mood", "note", "submittedAt"];
+    const headers = ["name", "slug", "answer", "date", "time", "whatsapp", "treat", "mood", "note", "submittedAt"];
     const rows = [headers.join(",")].concat(
       lastRows.map((r) => headers.map((h) => csvCell(r[h])).join(","))
     );
@@ -465,6 +467,7 @@
     <answer>${xmlEsc(r.answer || "yes")}</answer>
     <date>${xmlEsc(r.date)}</date>
     <time>${xmlEsc(r.time)}</time>
+    <whatsapp>${xmlEsc(r.whatsapp)}</whatsapp>
     <treat>${xmlEsc(r.treat)}</treat>
     <mood>${xmlEsc(r.mood)}</mood>
     <note>${xmlEsc(r.note)}</note>
@@ -472,7 +475,7 @@
   }
 
   function responseKey(r) {
-    return `${r.slug || ""}|${r.submittedAt || ""}|${r.date || ""}|${r.time || ""}|${r.treat || ""}|${r.mood || ""}|${r.note || ""}`;
+    return `${r.slug || ""}|${r.submittedAt || ""}|${r.date || ""}|${r.time || ""}|${r.whatsapp || ""}|${r.treat || ""}|${r.mood || ""}|${r.note || ""}`;
   }
 
   /* ---------------- add a girl ---------------- */
