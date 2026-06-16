@@ -2,7 +2,8 @@
 
 A private, file-based collection of personalized "will you go on a date with me?" pages.
 Each girl gets her **own folder and her own link**, so no one can see anyone else's page.
-The whole thing is **static** and runs on **GitHub Pages** — there is no server and no database.
+The whole thing is **static** and runs on **GitHub Pages** — no database. Responses are saved straight
+into the repo's XML by a **GitHub Action** (rung by a tiny free relay), so you see them automatically.
 
 Live base URL: `https://psbandarigoda.github.io/The-Next-Step-of-My-Life/`
 
@@ -81,24 +82,62 @@ Everything except name, photos, folder name and optional contact uses a shared *
 
 ## Seeing responses
 
-Because a static site cannot write back to the repo from a visitor's phone, a girl's answer is
-**delivered to you** when she submits (WhatsApp or email if you set them, plus a downloadable file),
-and her message includes a short **answer code**.
+When a girl submits — **from any phone, any country** — her answer is sent to a tiny **relay**
+("doorbell") that rings a **GitHub Action** in this repo. The Action commits her answer into
+`assets/responses.xml` (and her own `assets/<girl>/responses.xml`) automatically. A minute later it
+shows up in **Admin → Responses** with no manual import.
 
-In **Admin → Responses** you can:
+In **Admin → Responses** you can **Refresh** to read every response (who, what they chose, when),
+**Export CSV**, and **Reset** any row. Responses you tested on your own machine are also still merged
+from your browser as a fallback.
 
-- **Refresh** to read every girl's `responses.xml` and see who submitted, what they chose, and when.
-- **Export CSV** of all responses.
-- **Import answers from this browser** (handy when you tested on your own machine).
-- **Save this answer** by pasting the **answer code** from a girl's message into the box and clicking save — it appends to her `responses.xml`.
+> If you skip the one-time relay setup below, remote answers can't reach the repo — they only stay in
+> the girl's own browser. Setup is required for cross-device saving.
 
-After importing answers, **commit & push** to keep them in the repo:
+---
+
+## One-time setup: auto-save responses from any device
+
+This is what makes a girl's answer reach your repo from another phone/country. You do it once.
+
+**1. Create a GitHub token (the key the relay uses).**
+On GitHub: **Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token**.
+- **Repository access:** Only select repositories → `psbandarigoda/The-Next-Step-of-My-Life`
+- **Permissions:** **Contents → Read and write** (this lets the Action run and commit)
+- Generate and copy the token (starts with `github_pat_…`). Treat it like a password.
+
+**2. Deploy the relay (free, no credit card) — `relay/cloudflare-worker.js`.**
+- Go to [dash.cloudflare.com](https://dash.cloudflare.com) → **Workers & Pages → Create → Worker**, give it a name (e.g. `tns-relay`), **Deploy**.
+- Click **Edit code**, paste the contents of `relay/cloudflare-worker.js`, **Deploy** again.
+- Open the worker's **Settings → Variables and Secrets → Add → Secret**:
+  - **Name:** `GH_TOKEN`  **Value:** the token from step 1. Save.
+- Copy the worker URL, e.g. `https://tns-relay.yourname.workers.dev`.
+
+**3. Point the site at your relay.**
+Open `assets/config.js` and paste your URL:
+
+```js
+window.TNS.relayUrl = "https://tns-relay.yourname.workers.dev";
+```
+
+Then commit & push:
 
 ```bash
 git add .
-git commit -m "Save responses"
+git commit -m "Enable remote response saving"
 git push
 ```
+
+**4. Make sure the Action can push.**
+On GitHub: **Settings → Actions → General → Workflow permissions → Read and write permissions** → Save.
+
+That's it. Test by submitting from your phone; within ~1 minute the new commit "New response (auto-saved
+from a girl's device)" appears and the answer shows in Admin.
+
+> Prefer GitHub Actions only / a different relay host? Any small serverless function works — it just needs to
+> POST `{ event_type: "new-response", client_payload: <the answer> }` to
+> `https://api.github.com/repos/psbandarigoda/The-Next-Step-of-My-Life/dispatches` with the token in the
+> `Authorization` header. The Cloudflare Worker is simply the easiest free option.
 
 ---
 

@@ -242,6 +242,7 @@
       };
 
       saveResponseLocally(response);
+      sendResponseToRepo(response);
 
       document.querySelector("[data-field='finaleTitle']").textContent = "Yes, our date is beautifully secured.";
       finalMessage.textContent = `Beautiful. Our date is secured for ${readableDate} at ${readableTime}. We will meet for ${answers.treat}, keep it ${answers.mood}, and I promise to make that day feel special for you.`;
@@ -294,6 +295,24 @@
         downloadBtn.textContent = "Secured Most Valuable Date";
       }, 2200);
     };
+  }
+
+  // Sends her answer to the relay "doorbell", which triggers the GitHub Action
+  // that writes it into the repo's XML. Fire-and-forget: the page already shows
+  // success from the local save, and localStorage stays as a fallback.
+  function sendResponseToRepo(response) {
+    const url = (window.TNS && window.TNS.relayUrl) || "";
+    if (!url) return;
+    try {
+      fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(response),
+        keepalive: true,
+      }).catch(() => {});
+    } catch (_) {
+      /* network blocked; local copy still kept */
+    }
   }
 
   function saveResponseLocally(response) {
