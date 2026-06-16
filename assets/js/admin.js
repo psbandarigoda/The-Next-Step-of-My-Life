@@ -48,8 +48,12 @@
       document.querySelectorAll(".panel").forEach((p) => p.classList.remove("active"));
       tab.classList.add("active");
       $(`panel-${tab.dataset.tab}`).classList.add("active");
+      if (tab.dataset.tab === "girls") loadGirls();
+      if (tab.dataset.tab === "responses") loadResponses();
     });
   });
+
+  $("refreshGirls").addEventListener("click", () => loadGirls());
 
   /* ---------------- repository connection ---------------- */
   $("connectBtn").addEventListener("click", connectRepo);
@@ -133,26 +137,29 @@
   }
 
   async function listGirlSlugs() {
-    const slugs = [];
-    if (!rootHandle) {
-      return fetchGirlRegistry().then((girls) => girls.map((g) => g.slug).sort());
+    const slugs = new Set();
+
+    // 1) Always include everyone listed in the central registry (girls.xml).
+    const registry = await fetchGirlRegistry();
+    registry.forEach((g) => g.slug && slugs.add(g.slug));
+
+    // 2) When the repository is connected, also include any girl folders on disk
+    //    that have a profile.xml (covers ones added but not yet in the registry).
+    if (rootHandle) {
+      try {
+        const assets = await getDir(["assets"]);
+        for await (const [name, handle] of assets.entries()) {
+          if (handle.kind === "directory") {
+            const profile = await readTextFile(handle, "profile.xml");
+            if (profile) slugs.add(name);
+          }
+        }
+      } catch (_) {
+        /* assets missing */
+      }
     }
 
-    try {
-      const assets = await getDir(["assets"]);
-      for await (const [name, handle] of assets.entries()) {
-        if (handle.kind === "directory") {
-          const profile = await readTextFile(handle, "profile.xml");
-          if (profile) slugs.push(name);
-        }
-      }
-    } catch (_) {
-      /* assets missing */
-    }
-    if (!slugs.length) {
-      return fetchGirlRegistry().then((girls) => girls.map((g) => g.slug).sort());
-    }
-    return Array.from(new Set(slugs)).sort();
+    return Array.from(slugs).sort();
   }
 
   async function fetchGirlRegistry() {
@@ -179,6 +186,8 @@
     const empty = $("girlsEmpty");
     list.innerHTML = "";
     const slugs = await listGirlSlugs();
+    const counter = $("girlsCount");
+    if (counter) counter.textContent = `Existing girls (${slugs.length})`;
     if (!slugs.length) {
       empty.classList.remove("hidden");
       return;

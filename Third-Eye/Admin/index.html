@@ -67,8 +67,12 @@
 
     <!-- Girls panel -->
     <section class="panel active" id="panel-girls">
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between; margin-bottom:14px;">
+        <p class="eyebrow" id="girlsCount" style="margin:0;">Existing girls</p>
+        <button class="btn-ghost" id="refreshGirls" type="button">Refresh</button>
+      </div>
       <div id="girlsList" class="girl-list"></div>
-      <div id="girlsEmpty" class="empty hidden">No girls found in the central girls XML yet.</div>
+      <div id="girlsEmpty" class="empty hidden">No girls in the system yet. Use the &ldquo;Add a girl&rdquo; tab to create one.</div>
     </section>
 
     <!-- Responses panel -->
