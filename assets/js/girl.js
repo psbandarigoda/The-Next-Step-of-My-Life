@@ -276,7 +276,14 @@
     }
 
     downloadBtn.classList.remove("hidden");
-    downloadBtn.onclick = () => downloadResponse(response);
+    downloadBtn.textContent = "Secured Most Valuable Date";
+    downloadBtn.onclick = async () => {
+      await copyText(code);
+      downloadBtn.textContent = "Our date is safely secured";
+      setTimeout(() => {
+        downloadBtn.textContent = "Secured Most Valuable Date";
+      }, 2200);
+    };
   }
 
   function saveResponseLocally(response) {
@@ -291,34 +298,23 @@
     }
   }
 
-  function downloadResponse(response) {
-    const xml = responseToXml(response);
-    const blob = new Blob([xml], { type: "application/xml" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `response-${response.slug}-${Date.now()}.xml`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  }
-
-  function responseToXml(r) {
-    const esc = (s) => String(s == null ? "" : s).replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]));
-    return `  <response>
-    <submittedAt>${esc(r.submittedAt)}</submittedAt>
-    <answer>${esc(r.answer)}</answer>
-    <date>${esc(r.date)}</date>
-    <time>${esc(r.time)}</time>
-    <treat>${esc(r.treat)}</treat>
-    <mood>${esc(r.mood)}</mood>
-    <note>${esc(r.note)}</note>
-  </response>`;
-  }
-
   function escapeHtml(s) {
     return String(s).replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]));
   }
   function escapeAttr(s) {
     return String(s).replace(/"/g, "&quot;");
+  }
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (_) {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+    }
   }
 
   function burstHearts(x, y) {

@@ -35,6 +35,8 @@
   function showAdmin() {
     $("loginView").classList.add("hidden");
     $("adminView").classList.remove("hidden");
+    loadGirls();
+    loadResponses();
     restoreHandle();
   }
 
@@ -130,6 +132,10 @@
 
   async function listGirlSlugs() {
     const slugs = [];
+    if (!rootHandle) {
+      return fetchGirlRegistry().then((girls) => girls.map((g) => g.slug).sort());
+    }
+
     try {
       const assets = await getDir(["assets"]);
       for await (const [name, handle] of assets.entries()) {
@@ -144,9 +150,25 @@
     return slugs.sort();
   }
 
+  async function fetchGirlRegistry() {
+    try {
+      const res = await fetch("../../assets/girls.xml", { cache: "no-store" });
+      if (!res.ok) return [];
+      const xml = parseXml(await res.text());
+      if (!xml) return [];
+      return Array.from(xml.querySelectorAll("girl"))
+        .map((girl) => ({
+          name: childText(girl, "name"),
+          slug: childText(girl, "slug"),
+        }))
+        .filter((girl) => girl.slug);
+    } catch (_) {
+      return [];
+    }
+  }
+
   /* ---------------- girls list ---------------- */
   async function loadGirls() {
-    if (!rootHandle) return;
     const list = $("girlsList");
     const empty = $("girlsEmpty");
     list.innerHTML = "";
@@ -158,12 +180,12 @@
     empty.classList.add("hidden");
 
     for (const slug of slugs) {
-      const assetsDir = await getDir(["assets", slug]);
-      const xml = parseXml(await readTextFile(assetsDir, "profile.xml"));
+      const xml = rootHandle
+        ? parseXml(await readTextFile(await getDir(["assets", slug]), "profile.xml"))
+        : await fetchProfile(slug);
       const name = xml ? tag(xml, "name") : slug;
       const images = xml ? Array.from(xml.querySelectorAll("images > image")).map((n) => n.textContent.trim()) : [];
-      const responses = parseXml(await readTextFile(assetsDir, "responses.xml"));
-      const count = responses ? responses.querySelectorAll("response").length : 0;
+      const count = await responseCountFor(slug);
       const link = girlLink(slug);
 
       const thumbs = images
@@ -188,6 +210,25 @@
     }
   }
 
+  async function fetchProfile(slug) {
+    try {
+      const res = await fetch(`../../assets/${encodeURIComponent(slug)}/profile.xml`, { cache: "no-store" });
+      if (!res.ok) return null;
+      return parseXml(await res.text());
+    } catch (_) {
+      return null;
+    }
+  }
+
+  async function responseCountFor(slug) {
+    if (rootHandle) {
+      const central = await readCentralResponses();
+      return central.filter((r) => r.slug === slug).length;
+    }
+    const central = await fetchCentralResponses();
+    return central.filter((r) => r.slug === slug).length;
+  }
+
   function girlLink(slug) {
     const base = location.pathname.replace(/Third-Eye\/Admin\/?(index\.html)?$/i, "");
     return `${location.origin}${base}${slug}/`;
@@ -204,33 +245,10 @@
   let lastRows = [];
 
   async function loadResponses() {
-    if (!rootHandle) return;
     const tbody = $("responsesTable").querySelector("tbody");
     const empty = $("responsesEmpty");
     tbody.innerHTML = "";
-    lastRows = [];
-
-    const slugs = await listGirlSlugs();
-    for (const slug of slugs) {
-      const assetsDir = await getDir(["assets", slug]);
-      const profile = parseXml(await readTextFile(assetsDir, "profile.xml"));
-      const name = profile ? tag(profile, "name") : slug;
-      const xml = parseXml(await readTextFile(assetsDir, "responses.xml"));
-      if (!xml) continue;
-      xml.querySelectorAll("response").forEach((r) => {
-        lastRows.push({
-          name,
-          slug,
-          answer: childText(r, "answer"),
-          date: childText(r, "date"),
-          time: childText(r, "time"),
-          treat: childText(r, "treat"),
-          mood: childText(r, "mood"),
-          note: childText(r, "note"),
-          submittedAt: childText(r, "submittedAt"),
-        });
-      });
-    }
+    lastRows = rootHandle ? await readCentralResponses() : await fetchCentralResponses();
 
     lastRows.sort((a, b) => (b.submittedAt || "").localeCompare(a.submittedAt || ""));
 
@@ -253,6 +271,41 @@
         <td>${escapeHtml(formatStamp(r.submittedAt))}</td>`;
       tbody.appendChild(tr);
     });
+  }
+
+  async function readCentralResponses() {
+    try {
+      const assets = await getDir(["assets"]);
+      return parseResponsesXml(await readTextFile(assets, "responses.xml"));
+    } catch (_) {
+      return [];
+    }
+  }
+
+  async function fetchCentralResponses() {
+    try {
+      const res = await fetch("../../assets/responses.xml", { cache: "no-store" });
+      if (!res.ok) return [];
+      return parseResponsesXml(await res.text());
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function parseResponsesXml(text) {
+    const xml = parseXml(text);
+    if (!xml) return [];
+    return Array.from(xml.querySelectorAll("response")).map((r) => ({
+      name: childText(r, "name"),
+      slug: childText(r, "slug"),
+      answer: childText(r, "answer"),
+      date: childText(r, "date"),
+      time: childText(r, "time"),
+      treat: childText(r, "treat"),
+      mood: childText(r, "mood"),
+      note: childText(r, "note"),
+      submittedAt: childText(r, "submittedAt"),
+    }));
   }
 
   function exportCsv() {
@@ -331,6 +384,8 @@
     } catch (_) {
       return false;
     }
+    await appendCentralResponse(r);
+
     let text = await readTextFile(assetsDir, "responses.xml");
     if (!text || !text.includes("</responses>")) {
       text = '<?xml version="1.0" encoding="UTF-8"?>\n<responses>\n</responses>\n';
@@ -341,8 +396,20 @@
     return true;
   }
 
+  async function appendCentralResponse(r) {
+    const assetsDir = await getDir(["assets"], true);
+    let text = await readTextFile(assetsDir, "responses.xml");
+    if (!text || !text.includes("</responses>")) {
+      text = '<?xml version="1.0" encoding="UTF-8"?>\n<responses>\n</responses>\n';
+    }
+    text = text.replace("</responses>", `${responseSnippet(r)}\n</responses>`);
+    await writeTextFile(assetsDir, "responses.xml", text);
+  }
+
   function responseSnippet(r) {
     return `  <response>
+    <name>${xmlEsc(r.name)}</name>
+    <slug>${xmlEsc(r.slug)}</slug>
     <submittedAt>${xmlEsc(r.submittedAt || new Date().toISOString())}</submittedAt>
     <answer>${xmlEsc(r.answer || "yes")}</answer>
     <date>${xmlEsc(r.date)}</date>
@@ -420,6 +487,7 @@
       setStatus("Writing profile...");
       await writeTextFile(assetsDir, "profile.xml", buildProfileXml(name, slug, imageNames));
       await writeTextFile(assetsDir, "responses.xml", '<?xml version="1.0" encoding="UTF-8"?>\n<responses>\n</responses>\n');
+      await appendGirlRegistry({ name, slug });
 
       setStatus("Creating her page...");
       const templateHtml = await fetchTemplate();
@@ -442,6 +510,21 @@
       $("addSubmit").disabled = false;
     }
   });
+
+  async function appendGirlRegistry(girl) {
+    const assetsDir = await getDir(["assets"], true);
+    let text = await readTextFile(assetsDir, "girls.xml");
+    if (!text || !text.includes("</girls>")) {
+      text = '<?xml version="1.0" encoding="UTF-8"?>\n<girls>\n</girls>\n';
+    }
+    if (text.includes(`<slug>${xmlEsc(girl.slug)}</slug>`)) return;
+    const snippet = `  <girl>
+    <name>${xmlEsc(girl.name)}</name>
+    <slug>${xmlEsc(girl.slug)}</slug>
+  </girl>`;
+    text = text.replace("</girls>", `${snippet}\n</girls>`);
+    await writeTextFile(assetsDir, "girls.xml", text);
+  }
 
   async function slugExists(slug) {
     try {
