@@ -5,12 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>A little invitation</title>
   <meta name="robots" content="noindex">
+  <link rel="dns-prefetch" href="https://pjzhwnztlqbfyjnrqvrl.supabase.co">
+  <link rel="preconnect" href="https://pjzhwnztlqbfyjnrqvrl.supabase.co" crossorigin>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/The-Next-Step-of-My-Life/assets/css/main.css">
+  <script src="/The-Next-Step-of-My-Life/assets/config.js"></script>
 </head>
-<body>
+<body class="page-loading">
   <!--
     This single page renders EVERY girl. GitHub Pages serves 404.html for any
     path that is not a real file, so /The-Next-Step-of-My-Life/<her-slug> lands
@@ -20,6 +23,15 @@
   <div class="aurora aurora-one"></div>
   <div class="aurora aurora-two"></div>
   <div class="petals" aria-hidden="true"></div>
+
+  <div class="page-loading-screen" id="pageLoading" aria-live="polite" aria-busy="true">
+    <div class="loading-card">
+      <span class="loading-heart" aria-hidden="true">&hearts;</span>
+      <p class="loading-eyebrow">A little surprise</p>
+      <p class="loading-text" id="loadingText">Opening something made just for you&hellip;</p>
+      <div class="loading-bar" aria-hidden="true"><span></span></div>
+    </div>
+  </div>
 
   <main class="app hidden" id="app">
     <section class="hero card reveal">
@@ -109,8 +121,7 @@
     </section>
   </main>
 
-  <script src="/The-Next-Step-of-My-Life/assets/config.js"></script>
-  <script src="/The-Next-Step-of-My-Life/assets/js/effects.js"></script>
-  <script src="/The-Next-Step-of-My-Life/assets/js/girl.js"></script>
+  <script src="/The-Next-Step-of-My-Life/assets/js/effects.js" defer></script>
+  <script src="/The-Next-Step-of-My-Life/assets/js/girl.js" defer></script>
 </body>
 </html>

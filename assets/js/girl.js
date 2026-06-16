@@ -5,28 +5,66 @@
 (function () {
   const app = document.getElementById("app");
   const missing = document.getElementById("missing");
+  const loader = document.getElementById("pageLoading");
+  const loadingText = document.getElementById("loadingText");
 
   const slug = resolveSlug();
   document.body.classList.add("surprise-locked");
 
   if (!slug) {
+    hideLoading();
     showMissing();
     return;
   }
 
-  const endpoint = (window.TNS && window.TNS.girlUrl) || "";
-  const anon = (window.TNS && window.TNS.anonKey) || "";
+  showLoading("Opening something made just for you&hellip;");
 
-  fetch(`${endpoint}?slug=${encodeURIComponent(slug)}`, {
-    headers: { apikey: anon, Authorization: `Bearer ${anon}` },
-    cache: "no-store",
-  })
-    .then((res) => (res.ok ? res.json() : Promise.reject(new Error("not found"))))
+  const promise =
+    window.TNS && window.TNS.profilePromise
+      ? window.TNS.profilePromise
+      : fetchProfile(slug);
+
+  promise
     .then((data) => {
       if (!data || !data.ok || !data.girl) throw new Error("not found");
-      renderPage(buildProfile(data.girl));
+      if (data.fromCache) setLoadingText("Almost ready&hellip;");
+      else setLoadingText("Preparing your surprise&hellip;");
+      renderPage(buildProfile(data.girl), hideLoading);
     })
-    .catch(() => showMissing());
+    .catch(() => {
+      hideLoading();
+      showMissing();
+    });
+
+  function fetchProfile(s) {
+    const endpoint = (window.TNS && window.TNS.girlUrl) || "";
+    const anon = (window.TNS && window.TNS.anonKey) || "";
+    return fetch(`${endpoint}?slug=${encodeURIComponent(s)}`, {
+      headers: { apikey: anon, Authorization: `Bearer ${anon}` },
+      cache: "default",
+    }).then((res) => (res.ok ? res.json() : Promise.reject(new Error("not found"))));
+  }
+
+  function setLoadingText(html) {
+    if (loadingText) loadingText.innerHTML = html;
+  }
+
+  function showLoading(text) {
+    document.body.classList.add("page-loading");
+    if (loader) {
+      loader.classList.remove("hidden", "is-done");
+      loader.setAttribute("aria-busy", "true");
+    }
+    if (text) setLoadingText(text);
+  }
+
+  function hideLoading() {
+    document.body.classList.remove("page-loading");
+    if (!loader) return;
+    loader.setAttribute("aria-busy", "false");
+    loader.classList.add("is-done");
+    setTimeout(() => loader.classList.add("hidden"), 480);
+  }
 
   function resolveSlug() {
     const parts = location.pathname.split("/").filter(Boolean);
@@ -86,7 +124,7 @@
     return file;
   }
 
-  function renderPage(profile) {
+  function renderPage(profile, onReady) {
     document.title = `For ${profile.name}`;
     missing.classList.add("hidden");
     app.classList.remove("hidden");
@@ -99,6 +137,23 @@
     renderPhotos(profile);
     renderReasons(profile);
     wireInteractions(profile);
+
+    // Keep the loading screen until the hero photo appears (or a short timeout).
+    setLoadingText("Loading her photo&hellip;");
+    const finish = () => {
+      if (onReady) onReady();
+    };
+    const mainImg = document.querySelector(".portrait-main");
+    if (!mainImg) {
+      finish();
+      return;
+    }
+    if (mainImg.complete && mainImg.naturalWidth > 0) finish();
+    else {
+      mainImg.addEventListener("load", finish, { once: true });
+      mainImg.addEventListener("error", finish, { once: true });
+      setTimeout(finish, 6000);
+    }
   }
 
   function renderPhotos(profile) {
@@ -112,20 +167,26 @@
 
     if (main) {
       stage.innerHTML = `
-        <img class="portrait portrait-main" src="${imgUrl(profile, main)}" alt="${escapeAttr(profile.name)}">
-        ${floatA ? `<img class="portrait portrait-float one" src="${imgUrl(profile, floatA)}" alt="">` : ""}
-        ${floatB ? `<img class="portrait portrait-float two" src="${imgUrl(profile, floatB)}" alt="">` : ""}
+        <img class="portrait portrait-main is-loading" src="${imgUrl(profile, main)}" alt="${escapeAttr(profile.name)}" decoding="async" fetchpriority="high">
+        ${floatA ? `<img class="portrait portrait-float one" src="${imgUrl(profile, floatA)}" alt="" decoding="async" loading="lazy">` : ""}
+        ${floatB ? `<img class="portrait portrait-float two" src="${imgUrl(profile, floatB)}" alt="" decoding="async" loading="lazy">` : ""}
       `;
+      const hero = stage.querySelector(".portrait-main");
+      if (hero) hero.addEventListener("load", () => hero.classList.remove("is-loading"), { once: true });
     }
     const polaroidImg = document.getElementById("polaroidImg");
     const finaleImg = document.getElementById("finaleImg");
     if (polaroid) {
       polaroidImg.src = imgUrl(profile, polaroid);
       polaroidImg.alt = profile.name;
+      polaroidImg.loading = "lazy";
+      polaroidImg.decoding = "async";
     }
     if (finale) {
       finaleImg.src = imgUrl(profile, finale);
       finaleImg.alt = profile.name;
+      finaleImg.loading = "lazy";
+      finaleImg.decoding = "async";
     }
   }
 
