@@ -297,16 +297,21 @@
     };
   }
 
-  // Sends her answer to the relay "doorbell", which triggers the GitHub Action
-  // that writes it into the repo's XML. Fire-and-forget: the page already shows
-  // success from the local save, and localStorage stays as a fallback.
+  // Saves her answer to Supabase (via the date-response Edge Function) so it is
+  // stored instantly and visible in Admin from any device/country. The local
+  // save above stays as a fallback if the network is unavailable.
   function sendResponseToRepo(response) {
-    const url = (window.TNS && window.TNS.relayUrl) || "";
+    const url = (window.TNS && window.TNS.responseUrl) || "";
+    const anon = (window.TNS && window.TNS.anonKey) || "";
     if (!url) return;
     try {
       fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          apikey: anon,
+          Authorization: `Bearer ${anon}`,
+        },
         body: JSON.stringify(response),
         keepalive: true,
       }).catch(() => {});

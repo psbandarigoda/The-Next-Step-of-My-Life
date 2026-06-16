@@ -8,6 +8,16 @@
   const CREDENTIALS = { user: "root", pass: "root" };
   const SEEDED_GIRLS = [{ name: "Sanduni", slug: "sanduni-kamburadeniya" }];
 
+  // Live response store (Supabase Edge Function). The adminKey is the secret that
+  // lets THIS page read + delete responses; it lives only here, never in a girl's
+  // page. The anon key is just the public gateway key.
+  const SUPABASE = {
+    url: "https://pjzhwnztlqbfyjnrqvrl.supabase.co/functions/v1/date-response",
+    anon:
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBqemh3bnp0bHFiZnlqbnJxdnJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1ODY1NzIsImV4cCI6MjA5NzE2MjU3Mn0.feyDSuD951TGndME1dElGikBZ8lwzSctpE7xbQUH-tM",
+    adminKey: "ns_live_7Qk2Vp9mZx4Rt6Bw3Ln8Yh1Cd0Js5Ae",
+  };
+
   let rootHandle = null; // FileSystemDirectoryHandle for the repo root
 
   const $ = (id) => document.getElementById(id);
@@ -263,6 +273,11 @@
   setInterval(() => {
     if (rootHandle && readLocalResponses().length) autoImportLocalResponses(true);
   }, 3000);
+  // Keep the Responses tab close to live by re-reading Supabase periodically.
+  setInterval(() => {
+    const panel = $("panel-responses");
+    if (panel && panel.classList.contains("active")) loadResponses();
+  }, 20000);
 
   let lastRows = [];
 
@@ -302,12 +317,52 @@
   async function readVisibleResponses() {
     const saved = rootHandle ? await readCentralResponses() : await fetchCentralResponses();
     const local = readLocalResponses();
+    const supa = await fetchSupabaseResponses();
     const unique = new Map();
-    saved.concat(local).forEach((row) => {
+    // Supabase rows go last so they win on duplicates and keep their id (needed for delete).
+    saved.concat(local).concat(supa).forEach((row) => {
       const key = `${row.slug}|${row.submittedAt}|${row.date}|${row.time}|${row.whatsapp}|${row.treat}|${row.mood}|${row.note}`;
       unique.set(key, row);
     });
     return Array.from(unique.values());
+  }
+
+  // Live responses saved by girls from any device (the main store now).
+  async function fetchSupabaseResponses() {
+    if (!SUPABASE.url) return [];
+    try {
+      const res = await fetch(SUPABASE.url, {
+        method: "GET",
+        cache: "no-store",
+        headers: {
+          apikey: SUPABASE.anon,
+          Authorization: `Bearer ${SUPABASE.anon}`,
+          "x-admin-key": SUPABASE.adminKey,
+        },
+      });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data.responses) ? data.responses : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  async function deleteSupabaseResponse(id) {
+    if (!SUPABASE.url || !id) return false;
+    try {
+      const res = await fetch(`${SUPABASE.url}?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+        headers: {
+          apikey: SUPABASE.anon,
+          Authorization: `Bearer ${SUPABASE.anon}`,
+          "x-admin-key": SUPABASE.adminKey,
+        },
+      });
+      return res.ok;
+    } catch (_) {
+      return false;
+    }
   }
 
   async function readCentralResponses() {
@@ -375,49 +430,47 @@
     const target = lastRows[index];
     if (!target) return;
 
-    if (!rootHandle) {
-      const local = readLocalResponses();
-      const nextLocal = local.filter((row) => responseKey(row) !== responseKey(target));
-      if (nextLocal.length !== local.length) {
-        localStorage.setItem("tns:responses", JSON.stringify(nextLocal));
-        await loadResponses();
-        await loadGirls();
-        toast("Local response reset.", "ok");
-        return;
+    // 1) Remove from the live Supabase store (where remote answers now live).
+    let removedRemote = false;
+    if (target.id) removedRemote = await deleteSupabaseResponse(target.id);
+
+    // 2) Remove any matching copy kept in this browser.
+    const local = readLocalResponses();
+    const nextLocal = local.filter((row) => responseKey(row) !== responseKey(target));
+    const removedLocal = nextLocal.length !== local.length;
+    if (removedLocal) localStorage.setItem("tns:responses", JSON.stringify(nextLocal));
+
+    // 3) If the repo is connected, also scrub the XML backups.
+    let removedXml = false;
+    if (rootHandle) {
+      const central = await readCentralResponses();
+      const nextCentral = central.filter((row) => responseKey(row) !== responseKey(target));
+      if (nextCentral.length !== central.length) {
+        const assetsDir = await getDir(["assets"], true);
+        await writeResponsesXml(assetsDir, "responses.xml", nextCentral);
+        removedXml = true;
       }
-
-      toast("Connect the repository first to reset saved XML responses.", "error");
-      return;
+      try {
+        const girlDir = await getDir(["assets", target.slug]);
+        const girlRows = parseResponsesXml(await readTextFile(girlDir, "responses.xml"));
+        await writeResponsesXml(
+          girlDir,
+          "responses.xml",
+          girlRows.filter((row) => responseKey(row) !== responseKey(target))
+        );
+      } catch (_) {
+        /* girl's backup response file may not exist yet */
+      }
     }
-
-    const central = await readCentralResponses();
-    const nextCentral = central.filter((row) => responseKey(row) !== responseKey(target));
-    if (nextCentral.length === central.length) {
-      toast("Response was not found in central XML.", "error");
-      return;
-    }
-
-    const assetsDir = await getDir(["assets"], true);
-    await writeResponsesXml(assetsDir, "responses.xml", nextCentral);
-
-    try {
-      const girlDir = await getDir(["assets", target.slug]);
-      const girlRows = parseResponsesXml(await readTextFile(girlDir, "responses.xml"));
-      await writeResponsesXml(
-        girlDir,
-        "responses.xml",
-        girlRows.filter((row) => responseKey(row) !== responseKey(target))
-      );
-    } catch (_) {
-      /* girl's backup response file may not exist yet */
-    }
-
-    const local = readLocalResponses().filter((row) => responseKey(row) !== responseKey(target));
-    localStorage.setItem("tns:responses", JSON.stringify(local));
 
     await loadResponses();
     await loadGirls();
-    toast("Response reset from XML.", "ok");
+
+    if (removedRemote || removedLocal || removedXml) {
+      toast("Response reset.", "ok");
+    } else {
+      toast("Could not find that response to reset.", "error");
+    }
   }
 
   async function writeResponsesXml(dir, fileName, rows) {

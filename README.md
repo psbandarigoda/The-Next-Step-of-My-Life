@@ -2,8 +2,8 @@
 
 A private, file-based collection of personalized "will you go on a date with me?" pages.
 Each girl gets her **own folder and her own link**, so no one can see anyone else's page.
-The whole thing is **static** and runs on **GitHub Pages** — no database. Responses are saved straight
-into the repo's XML by a **GitHub Action** (rung by a tiny free relay), so you see them automatically.
+The pages are **static** and run on **GitHub Pages**. Responses are saved instantly to a small, isolated
+**Supabase** backend (its own `nextstep` schema), so you see them in Admin from any device — automatically.
 
 Live base URL: `https://psbandarigoda.github.io/The-Next-Step-of-My-Life/`
 
@@ -82,72 +82,46 @@ Everything except name, photos, folder name and optional contact uses a shared *
 
 ## Seeing responses
 
-When a girl submits — **from any phone, any country** — her answer is sent to a tiny **relay**
-("doorbell") that rings a **GitHub Action** in this repo. The Action commits her answer into
-`assets/responses.xml` (and her own `assets/<girl>/responses.xml`) automatically. A minute later it
-shows up in **Admin → Responses** with no manual import.
+When a girl submits — **from any phone, any country** — her answer is saved **instantly** to a small
+**Supabase** backend (a private `nextstep` table reached through one secure Edge Function called
+`date-response`). It appears in **Admin → Responses** within seconds, with no manual import and no git push.
 
-In **Admin → Responses** you can **Refresh** to read every response (who, what they chose, when),
-**Export CSV**, and **Reset** any row. Responses you tested on your own machine are also still merged
-from your browser as a fallback.
+In **Admin → Responses** you can see every response (who, what they chose, when), **Export CSV**, and
+**Reset** any row (which deletes it from Supabase too). The page also auto-refreshes every ~20 seconds.
 
-> If you skip the one-time relay setup below, remote answers can't reach the repo — they only stay in
-> the girl's own browser. Setup is required for cross-device saving.
+**This is already set up and live — nothing for you to configure.** It works the moment your site is online.
 
----
+### How it stays isolated and safe
 
-## One-time setup: auto-save responses from any device
+- The dating data lives in its **own `nextstep` schema** — completely separate from your other Supabase
+  tables, which are never touched.
+- That table has **no public access**. A girl's page can only *send* an answer; it cannot read anything.
+- Only the **Admin page** can read/delete, using a secret key (`x-admin-key`) that lives only in the
+  Admin's JavaScript — never in a girl's page.
 
-This is what makes a girl's answer reach your repo from another phone/country. You do it once.
+### Want the answers as XML files too?
 
-**1. Create a GitHub token (the key the relay uses).**
-On GitHub: **Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token**.
-- **Repository access:** Only select repositories → `psbandarigoda/The-Next-Step-of-My-Life`
-- **Permissions:** **Contents → Read and write** (this lets the Action run and commit)
-- Generate and copy the token (starts with `github_pat_…`). Treat it like a password.
+Optional. If you connect the repo in **Admin** (the folder picker) and use **Backup & restore →
+Download full backup**, you keep offline copies. The XML files (`assets/responses.xml`, etc.) still work
+as a secondary/fallback store and are merged into the Admin view, but Supabase is now the live source.
 
-**2. Deploy the relay (free, no credit card) — `relay/cloudflare-worker.js`.**
-- Go to [dash.cloudflare.com](https://dash.cloudflare.com) → **Workers & Pages → Create → Worker**, give it a name (e.g. `tns-relay`), **Deploy**.
-- Click **Edit code**, paste the contents of `relay/cloudflare-worker.js`, **Deploy** again.
-- Open the worker's **Settings → Variables and Secrets → Add → Secret**:
-  - **Name:** `GH_TOKEN`  **Value:** the token from step 1. Save.
-- Copy the worker URL, e.g. `https://tns-relay.yourname.workers.dev`.
+### The keys (already filled in)
 
-**3. Point the site at your relay.**
-Open `assets/config.js` and paste your URL:
-
-```js
-window.TNS.relayUrl = "https://tns-relay.yourname.workers.dev";
-```
-
-Then commit & push:
-
-```bash
-git add .
-git commit -m "Enable remote response saving"
-git push
-```
-
-**4. Make sure the Action can push.**
-On GitHub: **Settings → Actions → General → Workflow permissions → Read and write permissions** → Save.
-
-That's it. Test by submitting from your phone; within ~1 minute the new commit "New response (auto-saved
-from a girl's device)" appears and the answer shows in Admin.
-
-> Prefer GitHub Actions only / a different relay host? Any small serverless function works — it just needs to
-> POST `{ event_type: "new-response", client_payload: <the answer> }` to
-> `https://api.github.com/repos/psbandarigoda/The-Next-Step-of-My-Life/dispatches` with the token in the
-> `Authorization` header. The Cloudflare Worker is simply the easiest free option.
+- `assets/config.js` holds the public Edge Function URL + anon key (safe to be public).
+- `assets/js/admin.js` holds the same URL plus the admin secret key. To rotate the secret, change
+  `ADMIN_KEY` in the `date-response` Edge Function and the `SUPABASE.adminKey` value in `admin.js` to match.
 
 ---
 
 ## Keeping your data safe (girls + responses)
 
-Your data lives in committed XML files so GitHub Pages can serve it:
+**Responses** are stored in **Supabase** (the live source) — pushing code can never delete them.
+
+The **girl/profile data** lives in committed XML files so GitHub Pages can serve it:
 
 - `assets/girls.xml` — the list of girls
-- `assets/responses.xml` — **all responses (your most important data)**
-- `assets/<girl>/profile.xml`, `assets/<girl>/responses.xml`, and her photos
+- `assets/<girl>/profile.xml` and her photos
+- `assets/responses.xml`, `assets/<girl>/responses.xml` — optional offline copies / fallback
 
 Because these are normal files in the repo, **pushing code does not delete them** — but you can overwrite
 newer data by pushing an older copy. To stay safe:
