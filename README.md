@@ -1,9 +1,9 @@
 # The Next Step of My Life
 
-A private, file-based collection of personalized "will you go on a date with me?" pages.
-Each girl gets her **own folder and her own link**, so no one can see anyone else's page.
-The pages are **static** and run on **GitHub Pages**. Responses are saved instantly to a small, isolated
-**Supabase** backend (its own `nextstep` schema), so you see them in Admin from any device — automatically.
+A collection of personalized "will you go on a date with me?" pages. Each girl gets her **own private link**,
+and no one can see anyone else's page. The site is **static** (GitHub Pages), but everything dynamic — every
+girl's profile, her photos, and her answers — lives in **Supabase**. So you add, edit, or remove a girl
+entirely from the **Admin** page, and her link works **instantly** with no files to edit and no git push.
 
 Live base URL: `https://psbandarigoda.github.io/The-Next-Step-of-My-Life/`
 
@@ -14,13 +14,20 @@ Live base URL: `https://psbandarigoda.github.io/The-Next-Step-of-My-Life/`
 | Link | What it shows |
 | --- | --- |
 | `…/The-Next-Step-of-My-Life/` | A clean **general** landing page (no girl's data). |
-| `…/The-Next-Step-of-My-Life/<Folder-Name>/` | That girl's personal invitation page. |
+| `…/The-Next-Step-of-My-Life/<her-slug>` | That girl's personal invitation page (loaded from the database). |
 | `…/The-Next-Step-of-My-Life/Third-Eye/Admin/` | The **Admin** panel (login `root` / `root`). |
-| Any wrong/unknown link | Falls back to the clean general page. |
+| Any unknown link | The clean general "open your personal link" page. |
 
-Example for one girl: `…/The-Next-Step-of-My-Life/Sanduni-Kamburadeniya/`
+Example: `…/The-Next-Step-of-My-Life/Kavindya-Dodangoda`
 
-> Tip: folder/link names use hyphens instead of spaces (so `Sanduni-Kamburadeniya`, not `Sanduni Kamburadeniya`). The Admin builds this automatically and shows you the exact link to copy.
+> Links are **case-insensitive** (`Kavindya-Dodangoda` and `kavindya-dodangoda` both work). The Admin shows
+> you the exact link to copy for each girl.
+
+### How one page serves every girl
+
+There are **no per-girl folders**. GitHub Pages serves `404.html` for any path that isn't a real file, so
+`…/The-Next-Step-of-My-Life/<her-slug>` lands on `404.html`, which reads the slug from the URL and loads that
+girl's profile from the database. Add a girl in Admin → her link is live the same second.
 
 ---
 
@@ -28,140 +35,101 @@ Example for one girl: `…/The-Next-Step-of-My-Life/Sanduni-Kamburadeniya/`
 
 ```
 /
-├─ index.html                      general landing page
-├─ 404.html                        catch-all (shows the general page)
-├─ .nojekyll                       tells GitHub Pages to serve all folders as-is
+├─ index.html                  general landing page (the base URL)
+├─ 404.html                    universal girl page (renders any /<slug> from the database)
+├─ .nojekyll                   serve files as-is on GitHub Pages
 ├─ assets/
+│  ├─ config.js                public Supabase URLs + anon key (safe to be public)
 │  ├─ css/main.css
-│  ├─ js/effects.js                falling-hearts background
-│  ├─ js/girl.js                   renders any girl page from her profile.xml
-│  ├─ js/admin.js                  the Admin logic
-│  └─ <folder-name>/               one folder per girl: images + data
-│     ├─ <her photos>.jpg/.png
-│     ├─ profile.xml               her name, words, image list, your contact
-│     └─ responses.xml             her submitted answers
-├─ <folder-name>/
-│  └─ index.html                   her page (a copy of the template)
-├─ template/girl/index.html        master template copied for each new girl
-└─ Third-Eye/Admin/index.html      admin panel
+│  ├─ js/effects.js            falling-hearts background
+│  ├─ js/girl.js               loads a girl by slug from the database and renders her page
+│  └─ js/admin.js              the Admin logic (girls CRUD + responses)
+└─ Third-Eye/Admin/index.html  admin panel
 ```
 
-A girl's **page** lives at `/<folder-name>/` and her **data + photos** live at `/assets/<folder-name>/`.
+That's the whole repo — just static code. No data is stored in git anymore.
 
 ---
 
-## Adding a new girl (from the Admin page)
+## Where everything lives (Supabase)
 
-The Admin writes the real files into this repo folder on your computer, using your browser's
-file access. **Use Chrome or Edge on desktop.**
+Everything is in **one isolated `nextstep` schema** plus a public Storage bucket, reached only through two
+secure Edge Functions:
 
-1. Open `…/Third-Eye/Admin/` (or `Third-Eye/Admin/index.html` locally) and log in with `root` / `root`.
-2. Click **Connect repository** and pick this project's folder. Allow edit access.
-3. Go to **Add a girl**:
-   - Enter her **name** and a **folder/link name** (auto-filled from the name).
-   - Upload a few **jpg/png** photos (first photo = the big one).
-   - Optionally set your **WhatsApp number / email** (used for her reply) and custom words.
-4. Click **Create her page**. The Admin will:
-   - create `assets/<folder-name>/` and save the photos there,
-   - write `profile.xml` and an empty `responses.xml`,
-   - create `<folder-name>/index.html` (a copy of the template),
-   - copy her link to your clipboard.
-5. **Commit & push** so the link goes live:
+- **`nextstep.girls`** table — every girl's profile (name, all sentences, photo URLs, your contact).
+- **`nextstep.responses`** table — every answer a girl submits.
+- **`girl-photos`** Storage bucket — the uploaded photos (publicly readable so pages can show them).
+- **`girls` Edge Function** — public "get one girl by slug" for the page; admin-only list / add / edit /
+  delete and photo upload.
+- **`date-response` Edge Function** — public "save an answer"; admin-only list / delete.
 
-   ```bash
-   git add .
-   git commit -m "Add <name>"
-   git push
-   ```
+The tables have **no public database access** (RLS on, no policies). A girl's page can only *fetch her own
+profile* and *send an answer*; it can never read the database directly or see other girls. Admin actions are
+gated by a secret key (`x-admin-key`) that lives only in `admin.js`.
 
-6. Share her link.
+---
 
-Everything except name, photos, folder name and optional contact uses a shared **general template**.
+## Managing girls (all from the Admin page)
+
+Open `…/Third-Eye/Admin/` and log in with `root` / `root`. Works in **any modern browser, on phone or
+desktop** — there is nothing to install or connect.
+
+**Girls** tab:
+
+- See every girl as a card with her cover photo, name, link (with a **Copy** button), **Open**, **Edit**,
+  and **Delete**.
+- **+ Add a girl** opens the editor with every sentence **pre-filled** with sweet default wording you can
+  edit. Write `{name}` in any sentence and it becomes her real name on the page.
+- Add up to **5 photos** (used as: big hero photo, two floating photos, the polaroid close-up, the finale
+  photo). When editing, the current photo shows under each slot — pick a new file only for the ones you want
+  to replace.
+- Optionally set **your WhatsApp / email** for her reply, and the three little "reasons".
+- Click **Save her page** — photos upload, the profile saves, and her link is live immediately.
+- **Delete** removes her profile and her photos.
+
+That's it — no folders, no commits, no template copying.
 
 ---
 
 ## Seeing responses
 
-When a girl submits — **from any phone, any country** — her answer is saved **instantly** to a small
-**Supabase** backend (a private `nextstep` table reached through one secure Edge Function called
-`date-response`). It appears in **Admin → Responses** within seconds, with no manual import and no git push.
-
-In **Admin → Responses** you can see every response (who, what they chose, when), **Export CSV**, and
-**Reset** any row (which deletes it from Supabase too). The page also auto-refreshes every ~20 seconds.
-
-**This is already set up and live — nothing for you to configure.** It works the moment your site is online.
-
-### How it stays isolated and safe
-
-- The dating data lives in its **own `nextstep` schema** — completely separate from your other Supabase
-  tables, which are never touched.
-- That table has **no public access**. A girl's page can only *send* an answer; it cannot read anything.
-- Only the **Admin page** can read/delete, using a secret key (`x-admin-key`) that lives only in the
-  Admin's JavaScript — never in a girl's page.
-
-### Want the answers as XML files too?
-
-Optional. If you connect the repo in **Admin** (the folder picker) and use **Backup & restore →
-Download full backup**, you keep offline copies. The XML files (`assets/responses.xml`, etc.) still work
-as a secondary/fallback store and are merged into the Admin view, but Supabase is now the live source.
-
-### The keys (already filled in)
-
-- `assets/config.js` holds the public Edge Function URL + anon key (safe to be public).
-- `assets/js/admin.js` holds the same URL plus the admin secret key. To rotate the secret, change
-  `ADMIN_KEY` in the `date-response` Edge Function and the `SUPABASE.adminKey` value in `admin.js` to match.
+When a girl submits — **from any phone, any country** — her answer is saved **instantly** to Supabase and
+shows in **Admin → Responses** within seconds. There you can see who answered, what they chose, and when,
+**Export CSV**, and **Reset** (permanently delete) any row.
 
 ---
 
-## Keeping your data safe (girls + responses)
+## Configuration (already done)
 
-**Responses** are stored in **Supabase** (the live source) — pushing code can never delete them.
+- `assets/config.js` holds the public Edge Function URLs + anon key (safe to be public).
+- `assets/js/admin.js` holds the same URLs plus the admin secret key. To rotate the secret, change
+  `ADMIN_KEY` in **both** Edge Functions (`girls` and `date-response`) and the `adminKey` value in
+  `admin.js` to match.
 
-The **girl/profile data** lives in committed XML files so GitHub Pages can serve it:
-
-- `assets/girls.xml` — the list of girls
-- `assets/<girl>/profile.xml` and her photos
-- `assets/responses.xml`, `assets/<girl>/responses.xml` — optional offline copies / fallback
-
-Because these are normal files in the repo, **pushing code does not delete them** — but you can overwrite
-newer data by pushing an older copy. To stay safe:
-
-1. **Before** editing code or pushing, open **Admin → Backup & restore → Download full backup**. Keep that
-   JSON file somewhere safe (it holds every girl + every response). A rolling copy is also kept automatically
-   in your browser.
-2. Always **pull before you push**:
-
-   ```bash
-   git pull --rebase
-   git add .
-   git commit -m "Update"
-   git push
-   ```
-
-3. If data is ever lost, open **Admin → Backup & restore → Restore from a backup file**, choose your backup,
-   and it **merges** everything back (nothing is overwritten or duplicated). Then commit & push.
-
-> The downloaded backup files (`next-step-backup-*.json`) and `responses-*.csv` are git-ignored on purpose —
-> keep them outside the repo as your private safety copies. The actual data XML files stay tracked.
+---
 
 ## First-time publish to GitHub Pages
 
 ```bash
-git init
 git add .
-git commit -m "Redesign: per-girl folders + Third-Eye admin"
+git commit -m "Database-driven girls + admin"
 git branch -M main
 git remote add origin https://github.com/psbandarigoda/The-Next-Step-of-My-Life.git
 git push -u origin main
 ```
 
-Then on GitHub: **Settings → Pages → Build and deployment → Source: Deploy from a branch → Branch: `main` / root**, and save.
-The site appears at `https://psbandarigoda.github.io/The-Next-Step-of-My-Life/` within a minute or two.
+Then on GitHub: **Settings → Pages → Build and deployment → Source: Deploy from a branch → Branch: `main` /
+root**, and save. The site appears at `https://psbandarigoda.github.io/The-Next-Step-of-My-Life/` within a
+minute or two.
 
 ---
 
 ## Notes & limits
 
-- The Admin login (`root` / `root`) is a light gate for a private link, **not real security**. Anyone who finds the Admin URL and types the password can open it. Keep the link private; change the credentials in `assets/js/admin.js` if you like.
-- Adding girls / saving responses needs **Chrome or Edge on desktop** (they support the File System Access API). Girl pages and the landing page work in any browser.
-- For local testing, open the site through a small web server (e.g. VS Code "Live Server") rather than double-clicking the HTML, so the pages can read their XML files.
+- The Admin login (`root` / `root`) is a light gate for a private link, **not real security**. Keep the
+  Admin URL private; change the credentials in `assets/js/admin.js` if you like.
+- Because all data is in Supabase, **pushing code can never delete a girl or a response.**
+- For local testing, open the site through a small web server (e.g. VS Code "Live Server") so the pages can
+  call the Edge Functions. Note the `404.html` routing trick only works on GitHub Pages, so locally open a
+  girl page via the Admin "Open" link or by hitting the Edge Function — on the live site every `/<slug>`
+  works automatically.

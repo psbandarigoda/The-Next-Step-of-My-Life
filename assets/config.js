@@ -7,9 +7,13 @@
 // -----------------------------------------------------------------------------
 window.TNS = window.TNS || {};
 
-// The date-response Edge Function endpoint.
+// The date-response Edge Function endpoint (saves + lists her answers).
 window.TNS.responseUrl =
   "https://pjzhwnztlqbfyjnrqvrl.supabase.co/functions/v1/date-response";
+
+// The girls Edge Function endpoint (serves each girl's profile by slug).
+window.TNS.girlUrl =
+  "https://pjzhwnztlqbfyjnrqvrl.supabase.co/functions/v1/girls";
 
 // Public anon key (used only as the gateway "apikey" header).
 window.TNS.anonKey =

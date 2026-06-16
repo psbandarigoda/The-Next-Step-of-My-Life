@@ -46,34 +46,148 @@
         <h1 class="script-letter">Your invitations</h1>
       </div>
       <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-        <span class="badge" id="repoBadge"><span class="dot"></span> Repository not connected</span>
-        <button class="btn-ghost" id="connectBtn" type="button">Connect repository</button>
+        <span class="badge connected" id="dbBadge"><span class="dot"></span> Live database</span>
         <button class="btn-ghost" id="logoutBtn" type="button">Log out</button>
       </div>
-    </div>
-
-    <div class="notice" id="connectNotice">
-      Girls and published responses load from the central XML files. To add girls or save new responses
-      into the repository XML, click <strong>Connect repository</strong> and pick this project's folder on your computer.
-      Same-browser submissions will be saved automatically after connection. After changes, commit &amp; push with git.
-      (Works in Chrome or Edge on desktop.)
     </div>
 
     <div class="tabs">
       <button class="tab active" data-tab="girls" type="button">Girls</button>
       <button class="tab" data-tab="responses" type="button">Responses</button>
-      <button class="tab" data-tab="add" type="button">Add a girl</button>
-      <button class="tab" data-tab="backup" type="button">Backup &amp; restore</button>
     </div>
 
-    <!-- Girls panel -->
+    <!-- Girls list panel -->
     <section class="panel active" id="panel-girls">
       <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between; margin-bottom:14px;">
         <p class="eyebrow" id="girlsCount" style="margin:0;">Existing girls</p>
-        <button class="btn-ghost" id="refreshGirls" type="button">Refresh</button>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn-ghost" id="refreshGirls" type="button">Refresh</button>
+          <button class="btn" id="addGirlBtn" type="button">+ Add a girl</button>
+        </div>
       </div>
       <div id="girlsList" class="girl-list"></div>
-      <div id="girlsEmpty" class="empty hidden">No girls in the system yet. Use the &ldquo;Add a girl&rdquo; tab to create one.</div>
+      <div id="girlsEmpty" class="empty hidden">No girls in the system yet. Click &ldquo;Add a girl&rdquo; to create one.</div>
+      <div id="girlsLoading" class="empty">Loading girls&hellip;</div>
+    </section>
+
+    <!-- Add / edit editor panel (shown on demand, not a tab) -->
+    <section class="panel" id="panel-editor">
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between; margin-bottom:10px;">
+        <h2 class="script-letter" id="editorTitle" style="font-size: clamp(1.6rem, 4vw, 2.4rem);">Add a girl</h2>
+        <button class="btn-ghost" id="editorBack" type="button">&larr; Back to girls</button>
+      </div>
+
+      <form id="girlForm">
+        <input type="hidden" id="editorMode" value="add">
+
+        <div class="grid-2">
+          <div class="field">
+            <label>Girl's name *
+              <input id="fName" type="text" placeholder="e.g. Sanduni" required>
+            </label>
+            <p class="hint">Shown on her page. You can write <strong>{name}</strong> inside any sentence below and it becomes her name.</p>
+          </div>
+          <div class="field">
+            <label>Link name (slug) *
+              <input id="fSlug" type="text" placeholder="e.g. Sanduni-Kamburadeniya" required>
+            </label>
+            <p class="hint" id="linkPreview">Her link will be shown here.</p>
+          </div>
+        </div>
+
+        <div class="notice">
+          <strong>Photos.</strong> Add up to 5. They are used as: big hero photo, two small floating photos,
+          the polaroid close-up, and the finale photo. When editing, the current photo shows below each slot &mdash;
+          choose a new file only for the ones you want to replace.
+        </div>
+
+        <div class="grid-2" id="imageSlots"></div>
+
+        <p class="eyebrow" style="margin-top:18px;">Words on her page (edit any of these)</p>
+
+        <div class="field">
+          <label>Eyebrow (tiny line above the title)
+            <input id="fEyebrow" type="text">
+          </label>
+        </div>
+        <div class="field">
+          <label>Headline
+            <input id="fHeadline" type="text">
+          </label>
+        </div>
+        <div class="field">
+          <label>Intro paragraph
+            <textarea id="fIntro"></textarea>
+          </label>
+        </div>
+
+        <p class="eyebrow" style="margin-top:8px;">Three little reasons</p>
+        <div class="grid-2">
+          <div class="field">
+            <label>Reason 1 title <input id="fR0t" type="text"></label>
+            <label style="margin-top:10px;">Reason 1 text <textarea id="fR0x"></textarea></label>
+          </div>
+          <div class="field">
+            <label>Reason 2 title <input id="fR1t" type="text"></label>
+            <label style="margin-top:10px;">Reason 2 text <textarea id="fR1x"></textarea></label>
+          </div>
+        </div>
+        <div class="field">
+          <label>Reason 3 title <input id="fR2t" type="text"></label>
+          <label style="margin-top:10px;">Reason 3 text <textarea id="fR2x"></textarea></label>
+        </div>
+
+        <div class="field">
+          <label>Polaroid caption
+            <input id="fPolaroid" type="text">
+          </label>
+        </div>
+        <div class="field">
+          <label>The question
+            <input id="fQuestion" type="text">
+          </label>
+        </div>
+        <div class="field">
+          <label>Under the question
+            <textarea id="fQuestionSub"></textarea>
+          </label>
+        </div>
+        <div class="field">
+          <label>Plan title
+            <input id="fPlanTitle" type="text">
+          </label>
+        </div>
+        <div class="field">
+          <label>Finale title (promise)
+            <input id="fFinaleTitle" type="text">
+          </label>
+        </div>
+        <div class="field">
+          <label>Finale message
+            <textarea id="fFinaleMessage"></textarea>
+          </label>
+        </div>
+
+        <div class="grid-2">
+          <div class="field">
+            <label>Your WhatsApp number (for her reply)
+              <input id="fWhatsapp" type="text" placeholder="e.g. 9477xxxxxxx">
+            </label>
+            <p class="hint">Country code + number, digits only. Leave empty to use email or the copy button.</p>
+          </div>
+          <div class="field">
+            <label>Your email (fallback reply)
+              <input id="fEmail" type="email" placeholder="you@example.com">
+            </label>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:8px;">
+          <button class="btn full" type="submit" id="saveGirl" style="flex:1; min-width:200px;">Save her page</button>
+          <button class="btn-ghost" type="button" id="resetDefaults">Reset words to defaults</button>
+        </div>
+        <p class="hint" id="editorStatus" style="text-align:center; margin-top:12px;"></p>
+      </form>
     </section>
 
     <!-- Responses panel -->
@@ -84,9 +198,8 @@
       </div>
 
       <div class="notice">
-        This page shows the information girls submitted. Responses are saved in
-        <strong>assets/responses.xml</strong>. The reset button removes that response from the central XML
-        and from the girl's own backup response XML after you connect the repository.
+        Every answer a girl submits is saved instantly in the database and shows here from any device.
+        <strong>Reset</strong> permanently removes that answer.
       </div>
 
       <div class="table-wrap">
@@ -98,103 +211,6 @@
         </table>
       </div>
       <div id="responsesEmpty" class="empty hidden">No responses yet.</div>
-    </section>
-
-    <!-- Add girl panel -->
-    <section class="panel" id="panel-add">
-      <form id="addForm">
-        <div class="grid-2">
-          <div class="field">
-            <label>Girl's name *
-              <input id="addName" type="text" placeholder="e.g. Sanduni" required>
-            </label>
-            <p class="hint">Shown on her page. Used in the headline by default.</p>
-          </div>
-          <div class="field">
-            <label>Folder / link name *
-              <input id="addSlug" type="text" placeholder="e.g. Sanduni-Kamburadeniya" required>
-            </label>
-            <p class="hint" id="slugPreview">Her link will be shown here.</p>
-          </div>
-        </div>
-
-        <div class="field">
-          <label>Photos (jpg / png) *
-            <input id="addImages" type="file" accept="image/png,image/jpeg" multiple required>
-          </label>
-          <p class="hint">First photo is the big one. Up to 5 are used (main, two floating, polaroid, finale).</p>
-          <div class="thumbs" id="addThumbs"></div>
-        </div>
-
-        <details style="margin-bottom:16px;">
-          <summary style="cursor:pointer; font-weight:800; color:var(--rose-dark);">Optional: contact + custom words (otherwise a general template is used)</summary>
-          <div style="margin-top:14px;">
-            <div class="grid-2">
-              <div class="field">
-                <label>Your WhatsApp number (for her reply)
-                  <input id="addWhatsapp" type="text" placeholder="e.g. 9477xxxxxxx">
-                </label>
-                <p class="hint">Country code + number, digits only. Leave empty to use email or download instead.</p>
-              </div>
-              <div class="field">
-                <label>Your email (fallback reply)
-                  <input id="addEmail" type="email" placeholder="you@example.com">
-                </label>
-              </div>
-            </div>
-            <div class="field">
-              <label>Headline
-                <input id="addHeadline" type="text" placeholder="{name}, your smile deserves a beautiful date.">
-              </label>
-            </div>
-            <div class="field">
-              <label>Intro
-                <textarea id="addIntro" placeholder="Leave empty for the general sweet intro."></textarea>
-              </label>
-            </div>
-            <div class="field">
-              <label>The question
-                <input id="addQuestion" type="text" placeholder="Will you go on a date with me?">
-              </label>
-            </div>
-          </div>
-        </details>
-
-        <button class="btn full" type="submit" id="addSubmit">Create her page</button>
-        <p class="hint" id="addStatus" style="text-align:center; margin-top:12px;"></p>
-      </form>
-    </section>
-
-    <!-- Backup panel -->
-    <section class="panel" id="panel-backup">
-      <div class="notice">
-        <strong>Keep your data safe.</strong> Your girls and especially their responses live in the XML
-        files inside the repository. Pushing code does not delete them, but to be safe: always
-        <em>download a backup</em> before big changes, and <em>restore</em> if anything is ever lost.
-        A rolling backup is also kept automatically in this browser.
-      </div>
-
-      <div class="girl-tile" style="margin-bottom:16px;">
-        <h3>Download a backup</h3>
-        <p class="hint">Saves all girls + all responses + profiles into one JSON file you can keep anywhere.</p>
-        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
-          <button class="btn" id="downloadBackup" type="button">Download full backup</button>
-          <button class="btn-ghost" id="restoreBrowserBackup" type="button">Restore last browser backup</button>
-        </div>
-      </div>
-
-      <div class="girl-tile">
-        <h3>Restore from a backup file</h3>
-        <p class="hint">
-          Merges a backup back into the data (nothing is overwritten or duplicated). Connect the repository
-          first so it can write the XML files.
-        </p>
-        <div class="field" style="margin-top:12px;">
-          <input id="restoreFile" type="file" accept="application/json,.json">
-        </div>
-        <button class="btn" id="restoreBackup" type="button">Restore this backup</button>
-        <p class="hint" id="backupStatus" style="margin-top:12px;"></p>
-      </div>
     </section>
   </main>
 

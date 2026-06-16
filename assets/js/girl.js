@@ -1,6 +1,7 @@
-// Renders a single girl's invitation page from her own profile.xml.
-// Every girl folder shares this exact script; the slug is derived from the
-// folder name, so the same template works for everyone.
+// Renders a single girl's invitation page. The profile (text + photo URLs) is
+// loaded live from the Supabase "girls" Edge Function by slug, so a new girl is
+// instantly available at /<slug> the moment she is added in Admin - no files,
+// no commits. The shared 404.html hosts this script for every slug.
 (function () {
   const app = document.getElementById("app");
   const missing = document.getElementById("missing");
@@ -13,22 +14,25 @@
     return;
   }
 
-  fetch(`../assets/${encodeURIComponent(slug)}/profile.xml`, { cache: "no-store" })
-    .then((res) => {
-      if (!res.ok) throw new Error("not found");
-      return res.text();
-    })
-    .then((text) => {
-      const xml = new DOMParser().parseFromString(text, "application/xml");
-      if (xml.querySelector("parsererror")) throw new Error("bad xml");
-      renderPage(buildProfile(xml));
+  const endpoint = (window.TNS && window.TNS.girlUrl) || "";
+  const anon = (window.TNS && window.TNS.anonKey) || "";
+
+  fetch(`${endpoint}?slug=${encodeURIComponent(slug)}`, {
+    headers: { apikey: anon, Authorization: `Bearer ${anon}` },
+    cache: "no-store",
+  })
+    .then((res) => (res.ok ? res.json() : Promise.reject(new Error("not found"))))
+    .then((data) => {
+      if (!data || !data.ok || !data.girl) throw new Error("not found");
+      renderPage(buildProfile(data.girl));
     })
     .catch(() => showMissing());
 
   function resolveSlug() {
     const parts = location.pathname.split("/").filter(Boolean);
     if (parts.length && parts[parts.length - 1].toLowerCase().endsWith(".html")) parts.pop();
-    return parts.length ? decodeURIComponent(parts[parts.length - 1]) : "";
+    // Lowercase so shared links stay case-insensitive (e.g. /Kavindya-Dodangoda).
+    return parts.length ? decodeURIComponent(parts[parts.length - 1]).toLowerCase() : "";
   }
 
   function showMissing() {
@@ -37,52 +41,49 @@
     if (missing) missing.classList.remove("hidden");
   }
 
-  function text(xml, tag) {
-    const node = xml.querySelector(tag);
-    return node ? node.textContent.trim() : "";
+  // Lets stored sentences use a {name} placeholder that becomes her real name.
+  function withName(value, name) {
+    return String(value == null ? "" : value).replace(/\{name\}/gi, name);
   }
 
-  function buildProfile(xml) {
-    const name = text(xml, "name") || "you";
-    const images = Array.from(xml.querySelectorAll("images > image"))
-      .map((n) => n.textContent.trim())
-      .filter(Boolean);
-
-    const fill = (tag, fallback) => text(xml, tag) || fallback;
+  function buildProfile(g) {
+    const name = (g.name || "you").trim();
+    const fill = (value, fallback) => withName(String(value || "").trim() || fallback, name);
 
     return {
       slug,
       name,
-      images,
-      eyebrow: fill("eyebrow", "A tiny surprise invitation"),
-      headline: fill("headline", `${name}, your smile deserves a beautiful date.`),
+      images: Array.isArray(g.images) ? g.images.filter(Boolean) : [],
+      eyebrow: fill(g.eyebrow, "A tiny surprise invitation"),
+      headline: fill(g.headline, `${name}, your smile deserves a beautiful date.`),
       intro: fill(
-        "intro",
+        g.intro,
         "I made this little page just for you, because asking you normally felt too small for someone this lovely."
       ),
-      polaroidCaption: fill("polaroidCaption", "My favorite view"),
-      question: fill("question", "Will you go on a date with me?"),
+      polaroidCaption: fill(g.polaroidCaption, "My favorite view"),
+      question: fill(g.question, "Will you go on a date with me?"),
       questionSub: fill(
-        "questionSub",
+        g.questionSub,
         "One evening. Good food. A little walk. A lot of smiles. And me trying my best to make you feel special."
       ),
-      planTitle: fill("planTitle", `When are you free, ${name}?`),
-      finaleTitle: fill("finaleTitle", "I will make it sweet, simple, and unforgettable."),
+      planTitle: fill(g.planTitle, `When are you free, ${name}?`),
+      finaleTitle: fill(g.finaleTitle, "I will make it sweet, simple, and unforgettable."),
       finaleMessage: fill(
-        "finaleMessage",
+        g.finaleMessage,
         "If you say yes, I will bring the smile, the care, and a little surprise just for you."
       ),
-      reasons: Array.from(xml.querySelectorAll("reasons > reason")).map((r) => ({
-        title: (r.querySelector("title") || {}).textContent || "",
-        text: (r.querySelector("text") || {}).textContent || "",
+      reasons: (Array.isArray(g.reasons) ? g.reasons : []).map((r) => ({
+        title: withName(r.title || "", name),
+        text: withName(r.text || "", name),
       })),
-      whatsapp: text(xml, "contact > whatsapp"),
-      email: text(xml, "contact > email"),
+      whatsapp: (g.whatsapp || "").trim(),
+      email: (g.email || "").trim(),
     };
   }
 
+  // Photos are full Supabase Storage URLs, so they are used as-is.
   function imgUrl(profile, file) {
-    return `../assets/${encodeURIComponent(profile.slug)}/${file}`;
+    return file;
   }
 
   function renderPage(profile) {
