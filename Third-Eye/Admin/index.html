@@ -76,28 +76,18 @@
       <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px;">
         <button class="btn-ghost" id="refreshResponses" type="button">Refresh</button>
         <button class="btn-ghost" id="exportCsv" type="button">Export CSV</button>
-        <button class="btn-ghost" id="importLocal" type="button">Import answers from this browser</button>
       </div>
 
       <div class="notice">
-        Same-browser submissions are saved automatically when the repository is connected. If she submits
-        from another phone, paste the hidden answer code from her message here to save it into the central XML.
-      </div>
-      <div class="grid-2" style="margin-bottom:18px;">
-        <div class="field">
-          <label>Answer code
-            <input id="importCode" type="text" placeholder="paste the code here">
-          </label>
-        </div>
-        <div class="field" style="display:flex; align-items:flex-end; gap:10px;">
-          <button class="btn full" id="importCodeBtn" type="button">Save this answer</button>
-        </div>
+        This page shows the information girls submitted. Responses are saved in
+        <strong>assets/responses.xml</strong>. The reset button removes that response from the central XML
+        and from the girl's own backup response XML after you connect the repository.
       </div>
 
       <div class="table-wrap">
         <table id="responsesTable">
           <thead>
-            <tr><th>Girl</th><th>Answer</th><th>Date &amp; time wanted</th><th>WhatsApp</th><th>Treat</th><th>Mood</th><th>Note</th><th>Submitted</th></tr>
+            <tr><th>Girl</th><th>Answer</th><th>Date &amp; time wanted</th><th>WhatsApp</th><th>Treat</th><th>Mood</th><th>Note</th><th>Submitted</th><th>Reset</th></tr>
           </thead>
           <tbody></tbody>
         </table>

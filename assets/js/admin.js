@@ -245,8 +245,6 @@
     loadResponses();
   });
   $("exportCsv").addEventListener("click", exportCsv);
-  $("importLocal").addEventListener("click", importFromBrowser);
-  $("importCodeBtn").addEventListener("click", importFromCode);
   window.addEventListener("storage", (event) => {
     if (event.key === "tns:responses") autoImportLocalResponses(true);
   });
@@ -270,7 +268,7 @@
     }
     empty.classList.add("hidden");
 
-    lastRows.forEach((r) => {
+    lastRows.forEach((r, index) => {
       const tr = document.createElement("tr");
       const when = formatWhen(r.date, r.time);
       tr.innerHTML = `
@@ -281,7 +279,9 @@
         <td>${escapeHtml(r.treat || "-")}</td>
         <td>${escapeHtml(r.mood || "-")}</td>
         <td>${escapeHtml(r.note || "-")}</td>
-        <td>${escapeHtml(formatStamp(r.submittedAt))}</td>`;
+        <td>${escapeHtml(formatStamp(r.submittedAt))}</td>
+        <td><button class="reset-response" type="button" data-response-index="${index}">Reset</button></td>`;
+      tr.querySelector("[data-response-index]").addEventListener("click", () => resetResponse(index));
       tbody.appendChild(tr);
     });
   }
@@ -358,9 +358,59 @@
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
 
-  async function importFromBrowser() {
-    if (!requireRepo()) return;
-    await autoImportLocalResponses(false);
+  async function resetResponse(index) {
+    const target = lastRows[index];
+    if (!target) return;
+
+    if (!rootHandle) {
+      const local = readLocalResponses();
+      const nextLocal = local.filter((row) => responseKey(row) !== responseKey(target));
+      if (nextLocal.length !== local.length) {
+        localStorage.setItem("tns:responses", JSON.stringify(nextLocal));
+        await loadResponses();
+        await loadGirls();
+        toast("Local response reset.", "ok");
+        return;
+      }
+
+      toast("Connect the repository first to reset saved XML responses.", "error");
+      return;
+    }
+
+    const central = await readCentralResponses();
+    const nextCentral = central.filter((row) => responseKey(row) !== responseKey(target));
+    if (nextCentral.length === central.length) {
+      toast("Response was not found in central XML.", "error");
+      return;
+    }
+
+    const assetsDir = await getDir(["assets"], true);
+    await writeResponsesXml(assetsDir, "responses.xml", nextCentral);
+
+    try {
+      const girlDir = await getDir(["assets", target.slug]);
+      const girlRows = parseResponsesXml(await readTextFile(girlDir, "responses.xml"));
+      await writeResponsesXml(
+        girlDir,
+        "responses.xml",
+        girlRows.filter((row) => responseKey(row) !== responseKey(target))
+      );
+    } catch (_) {
+      /* girl's backup response file may not exist yet */
+    }
+
+    const local = readLocalResponses().filter((row) => responseKey(row) !== responseKey(target));
+    localStorage.setItem("tns:responses", JSON.stringify(local));
+
+    await loadResponses();
+    await loadGirls();
+    toast("Response reset from XML.", "ok");
+  }
+
+  async function writeResponsesXml(dir, fileName, rows) {
+    const body = rows.map((row) => responseSnippet(row)).join("\n");
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<responses>\n${body}${body ? "\n" : ""}</responses>\n`;
+    await writeTextFile(dir, fileName, xml);
   }
 
   async function autoImportLocalResponses(silent) {
@@ -392,35 +442,6 @@
       toast("No answers could be imported.", "error");
     }
     return added;
-  }
-
-  async function importFromCode() {
-    if (!requireRepo()) return;
-    const raw = $("importCode").value.trim();
-    if (!raw) {
-      toast("Paste an answer code first.", "error");
-      return;
-    }
-    let data;
-    try {
-      data = JSON.parse(decodeURIComponent(escape(atob(raw))));
-    } catch (_) {
-      toast("That code could not be read.", "error");
-      return;
-    }
-    if (!data || !data.slug) {
-      toast("That code has no girl attached.", "error");
-      return;
-    }
-    const ok = await appendResponse(data);
-    if (ok) {
-      $("importCode").value = "";
-      await loadResponses();
-      await loadGirls();
-      toast("Answer saved.", "ok");
-    } else {
-      toast(`No girl folder named "${data.slug}".`, "error");
-    }
   }
 
   async function appendResponse(r) {
