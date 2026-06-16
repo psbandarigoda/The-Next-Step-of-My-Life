@@ -63,6 +63,7 @@
       <button class="tab active" data-tab="girls" type="button">Girls</button>
       <button class="tab" data-tab="responses" type="button">Responses</button>
       <button class="tab" data-tab="add" type="button">Add a girl</button>
+      <button class="tab" data-tab="backup" type="button">Backup &amp; restore</button>
     </div>
 
     <!-- Girls panel -->
@@ -162,6 +163,38 @@
         <button class="btn full" type="submit" id="addSubmit">Create her page</button>
         <p class="hint" id="addStatus" style="text-align:center; margin-top:12px;"></p>
       </form>
+    </section>
+
+    <!-- Backup panel -->
+    <section class="panel" id="panel-backup">
+      <div class="notice">
+        <strong>Keep your data safe.</strong> Your girls and especially their responses live in the XML
+        files inside the repository. Pushing code does not delete them, but to be safe: always
+        <em>download a backup</em> before big changes, and <em>restore</em> if anything is ever lost.
+        A rolling backup is also kept automatically in this browser.
+      </div>
+
+      <div class="girl-tile" style="margin-bottom:16px;">
+        <h3>Download a backup</h3>
+        <p class="hint">Saves all girls + all responses + profiles into one JSON file you can keep anywhere.</p>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
+          <button class="btn" id="downloadBackup" type="button">Download full backup</button>
+          <button class="btn-ghost" id="restoreBrowserBackup" type="button">Restore last browser backup</button>
+        </div>
+      </div>
+
+      <div class="girl-tile">
+        <h3>Restore from a backup file</h3>
+        <p class="hint">
+          Merges a backup back into the data (nothing is overwritten or duplicated). Connect the repository
+          first so it can write the XML files.
+        </p>
+        <div class="field" style="margin-top:12px;">
+          <input id="restoreFile" type="file" accept="application/json,.json">
+        </div>
+        <button class="btn" id="restoreBackup" type="button">Restore this backup</button>
+        <p class="hint" id="backupStatus" style="margin-top:12px;"></p>
+      </div>
     </section>
   </main>
 

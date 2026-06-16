@@ -102,6 +102,35 @@ git push
 
 ---
 
+## Keeping your data safe (girls + responses)
+
+Your data lives in committed XML files so GitHub Pages can serve it:
+
+- `assets/girls.xml` — the list of girls
+- `assets/responses.xml` — **all responses (your most important data)**
+- `assets/<girl>/profile.xml`, `assets/<girl>/responses.xml`, and her photos
+
+Because these are normal files in the repo, **pushing code does not delete them** — but you can overwrite
+newer data by pushing an older copy. To stay safe:
+
+1. **Before** editing code or pushing, open **Admin → Backup & restore → Download full backup**. Keep that
+   JSON file somewhere safe (it holds every girl + every response). A rolling copy is also kept automatically
+   in your browser.
+2. Always **pull before you push**:
+
+   ```bash
+   git pull --rebase
+   git add .
+   git commit -m "Update"
+   git push
+   ```
+
+3. If data is ever lost, open **Admin → Backup & restore → Restore from a backup file**, choose your backup,
+   and it **merges** everything back (nothing is overwritten or duplicated). Then commit & push.
+
+> The downloaded backup files (`next-step-backup-*.json`) and `responses-*.csv` are git-ignored on purpose —
+> keep them outside the repo as your private safety copies. The actual data XML files stay tracked.
+
 ## First-time publish to GitHub Pages
 
 ```bash

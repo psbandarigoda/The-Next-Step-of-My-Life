@@ -1,0 +1,29 @@
+# OS / editor junk only.
+# IMPORTANT: Do NOT ignore your data here.
+# The live site on GitHub Pages can only serve data that is committed to git:
+#   - assets/girls.xml            (list of girls)
+#   - assets/responses.xml        (all responses - your most important data)
+#   - assets/<girl>/profile.xml   (each girl's page data)
+#   - assets/<girl>/responses.xml (each girl's backup responses)
+#   - assets/<girl>/*.jpg|*.png   (each girl's photos)
+# These MUST stay tracked. Use Admin -> "Backup & restore" to keep safe copies.
+
+# macOS / Windows
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*~
+
+# Logs / temp
+*.log
+.cache/
+node_modules/
+
+# Local-only downloaded backups (keep these OUT of the repo)
+next-step-backup-*.json
+responses-*.csv

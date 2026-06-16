@@ -254,6 +254,9 @@
     loadResponses();
   });
   $("exportCsv").addEventListener("click", exportCsv);
+  $("downloadBackup").addEventListener("click", downloadBackup);
+  $("restoreBrowserBackup").addEventListener("click", restoreBrowserBackup);
+  $("restoreBackup").addEventListener("click", onRestoreFile);
   window.addEventListener("storage", (event) => {
     if (event.key === "tns:responses") autoImportLocalResponses(true);
   });
@@ -270,6 +273,7 @@
     lastRows = await readVisibleResponses();
 
     lastRows.sort((a, b) => (b.submittedAt || "").localeCompare(a.submittedAt || ""));
+    saveRollingBackup(lastRows);
 
     if (!lastRows.length) {
       empty.classList.remove("hidden");
@@ -420,6 +424,175 @@
     const body = rows.map((row) => responseSnippet(row)).join("\n");
     const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<responses>\n${body}${body ? "\n" : ""}</responses>\n`;
     await writeTextFile(dir, fileName, xml);
+  }
+
+  /* ---------------- backup & restore ---------------- */
+  const BACKUP_TYPE = "the-next-step-backup";
+
+  function setBackupStatus(msg) {
+    const el = $("backupStatus");
+    if (el) el.textContent = msg || "";
+  }
+
+  async function readProfileText(slug) {
+    if (rootHandle) {
+      try {
+        return await readTextFile(await getDir(["assets", slug]), "profile.xml");
+      } catch (_) {
+        return null;
+      }
+    }
+    try {
+      const res = await fetch(`../../assets/${encodeURIComponent(slug)}/profile.xml`, { cache: "no-store" });
+      return res.ok ? await res.text() : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  async function buildBackup() {
+    const slugs = await listGirlSlugs();
+    const registry = await fetchGirlRegistry();
+    const nameBySlug = {};
+    registry.forEach((g) => {
+      if (g.slug) nameBySlug[g.slug] = g.name;
+    });
+
+    const girls = [];
+    for (const slug of slugs) {
+      const profileXml = (await readProfileText(slug)) || "";
+      let name = nameBySlug[slug] || slug;
+      if (profileXml) {
+        const x = parseXml(profileXml);
+        if (x) name = tag(x, "name") || name;
+      }
+      girls.push({ slug, name, profileXml });
+    }
+
+    return {
+      type: BACKUP_TYPE,
+      version: 1,
+      createdAt: new Date().toISOString(),
+      girls,
+      responses: await readVisibleResponses(),
+    };
+  }
+
+  async function downloadBackup() {
+    setBackupStatus("Building backup...");
+    const backup = await buildBackup();
+    saveRollingBackup(backup.responses);
+
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+    const stamp = new Date().toISOString().replace(/[:T]/g, "-").slice(0, 16);
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `next-step-backup-${stamp}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+
+    setBackupStatus(`Backup downloaded: ${backup.girls.length} girls, ${backup.responses.length} responses.`);
+    toast("Backup downloaded.", "ok");
+  }
+
+  function saveRollingBackup(rows) {
+    try {
+      localStorage.setItem(
+        "tns:backup",
+        JSON.stringify({ type: BACKUP_TYPE, version: 1, createdAt: new Date().toISOString(), responses: rows || [] })
+      );
+    } catch (_) {
+      /* storage full or unavailable */
+    }
+  }
+
+  function mergeResponsesIntoLocal(rows) {
+    const local = readLocalResponses();
+    const keys = new Set(local.map(responseKey));
+    let changed = false;
+    (rows || []).forEach((r) => {
+      if (r && r.slug && !keys.has(responseKey(r))) {
+        local.push(r);
+        keys.add(responseKey(r));
+        changed = true;
+      }
+    });
+    if (changed) localStorage.setItem("tns:responses", JSON.stringify(local));
+    return changed;
+  }
+
+  async function onRestoreFile() {
+    const file = $("restoreFile").files[0];
+    if (!file) {
+      toast("Choose a backup file first.", "error");
+      return;
+    }
+    let backup;
+    try {
+      backup = JSON.parse(await file.text());
+    } catch (_) {
+      toast("That file is not a valid backup.", "error");
+      return;
+    }
+    await restoreFromBackup(backup);
+  }
+
+  function restoreBrowserBackup() {
+    let backup;
+    try {
+      backup = JSON.parse(localStorage.getItem("tns:backup") || "null");
+    } catch (_) {
+      backup = null;
+    }
+    if (!backup) {
+      toast("No browser backup found yet.", "error");
+      return;
+    }
+    restoreFromBackup(backup);
+  }
+
+  async function restoreFromBackup(backup) {
+    if (!backup || backup.type !== BACKUP_TYPE) {
+      toast("That file is not a Next Step backup.", "error");
+      return;
+    }
+
+    // Always keep responses safe locally so nothing is lost, even without the repo.
+    mergeResponsesIntoLocal(backup.responses || []);
+
+    if (!rootHandle) {
+      await loadResponses();
+      await loadGirls();
+      setBackupStatus("Responses restored to this browser. Connect the repository to write them into the XML files.");
+      toast("Restored to browser. Connect repository to save into XML.", "ok");
+      return;
+    }
+
+    let profilesWritten = 0;
+    for (const g of backup.girls || []) {
+      if (!g || !g.slug) continue;
+      await appendGirlRegistry({ name: g.name || g.slug, slug: g.slug });
+      const dir = await getDir(["assets", g.slug], true);
+      if (g.profileXml && !(await readTextFile(dir, "profile.xml"))) {
+        await writeTextFile(dir, "profile.xml", g.profileXml);
+        profilesWritten += 1;
+      }
+      if (!(await readTextFile(dir, "responses.xml"))) {
+        await writeTextFile(dir, "responses.xml", '<?xml version="1.0" encoding="UTF-8"?>\n<responses>\n</responses>\n');
+      }
+    }
+
+    let responsesWritten = 0;
+    for (const r of backup.responses || []) {
+      if (await appendResponse(r)) responsesWritten += 1;
+    }
+
+    await loadGirls();
+    await loadResponses();
+    setBackupStatus(
+      `Restore complete: ${profilesWritten} profile(s) recreated, ${responsesWritten} new response(s) saved into XML. Commit & push to keep them.`
+    );
+    toast("Backup restored into the XML files.", "ok");
   }
 
   async function autoImportLocalResponses(silent) {
