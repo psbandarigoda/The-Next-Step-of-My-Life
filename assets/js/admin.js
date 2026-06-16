@@ -249,7 +249,7 @@
     if (event.key === "tns:responses") autoImportLocalResponses(true);
   });
   setInterval(() => {
-    if (readLocalResponses().length) autoImportLocalResponses(true);
+    if (rootHandle && readLocalResponses().length) autoImportLocalResponses(true);
   }, 3000);
 
   let lastRows = [];
@@ -422,49 +422,57 @@
 
     const stored = readLocalResponses();
     if (!stored.length) {
-      if (!silent) toast("No answers saved in this browser.", "error");
+      if (!silent) toast("No new answers to save.", "ok");
       return 0;
     }
 
+    // Only write the ones that are not already saved in the central XML.
+    // We deliberately keep them in local storage so a submission never
+    // disappears on refresh; it is only removed when you press Reset.
+    const central = await readCentralResponses();
+    const centralKeys = new Set(central.map(responseKey));
+    const newOnes = stored.filter((r) => r.slug && !centralKeys.has(responseKey(r)));
+
     let added = 0;
-    for (const r of stored) {
+    for (const r of newOnes) {
       if (await appendResponse(r)) added += 1;
     }
-    localStorage.removeItem("tns:responses");
-    await loadResponses();
-    await loadGirls();
+
+    if (added) {
+      await loadResponses();
+      await loadGirls();
+    }
 
     if (added && !silent) {
-      toast(`${added} answer${added === 1 ? "" : "s"} saved into central XML.`, "ok");
-    } else if (added && silent) {
-      toast(`${added} new answer${added === 1 ? "" : "s"} auto-saved.`, "ok");
-    } else if (!silent) {
-      toast("No answers could be imported.", "error");
+      toast(`${added} answer${added === 1 ? "" : "s"} saved into the XML.`, "ok");
+    } else if (!added && !silent) {
+      toast("All answers are already saved.", "ok");
     }
     return added;
   }
 
   async function appendResponse(r) {
     if (!r || !r.slug) return false;
-    let assetsDir;
-    try {
-      assetsDir = await getDir(["assets", r.slug]);
-    } catch (_) {
-      return false;
-    }
-    await appendCentralResponse(r);
 
-    let text = await readTextFile(assetsDir, "responses.xml");
-    if (!text || !text.includes("</responses>")) {
-      text = '<?xml version="1.0" encoding="UTF-8"?>\n<responses>\n</responses>\n';
+    // The central XML is the source of truth.
+    const addedToCentral = await appendCentralResponse(r);
+
+    // The girl's own folder keeps a backup copy (best effort).
+    try {
+      const assetsDir = await getDir(["assets", r.slug]);
+      let text = await readTextFile(assetsDir, "responses.xml");
+      if (!text || !text.includes("</responses>")) {
+        text = '<?xml version="1.0" encoding="UTF-8"?>\n<responses>\n</responses>\n';
+      }
+      if (!parseResponsesXml(text).some((existing) => responseKey(existing) === responseKey(r))) {
+        text = text.replace("</responses>", `${responseSnippet(r)}\n</responses>`);
+        await writeTextFile(assetsDir, "responses.xml", text);
+      }
+    } catch (_) {
+      /* girl's folder may not exist; the central XML still has the answer */
     }
-    if (parseResponsesXml(text).some((existing) => responseKey(existing) === responseKey(r))) {
-      return true;
-    }
-    const snippet = responseSnippet(r);
-    text = text.replace("</responses>", `${snippet}\n</responses>`);
-    await writeTextFile(assetsDir, "responses.xml", text);
-    return true;
+
+    return addedToCentral;
   }
 
   async function appendCentralResponse(r) {
@@ -474,10 +482,11 @@
       text = '<?xml version="1.0" encoding="UTF-8"?>\n<responses>\n</responses>\n';
     }
     if (parseResponsesXml(text).some((existing) => responseKey(existing) === responseKey(r))) {
-      return;
+      return false;
     }
     text = text.replace("</responses>", `${responseSnippet(r)}\n</responses>`);
     await writeTextFile(assetsDir, "responses.xml", text);
+    return true;
   }
 
   function responseSnippet(r) {
