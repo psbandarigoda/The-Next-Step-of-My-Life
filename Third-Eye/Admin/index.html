@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Third Eye &middot; Admin</title>
+  <meta name="robots" content="noindex">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/css/main.css">
+</head>
+<body>
+  <div class="aurora aurora-one"></div>
+  <div class="aurora aurora-two"></div>
+
+  <!-- Login -->
+  <main class="login-wrap" id="loginView">
+    <section class="card login-card reveal">
+      <span class="brand-mark">&#128065;</span>
+      <p class="eyebrow">Third Eye</p>
+      <h1 class="script-letter" style="font-size: clamp(2rem, 5vw, 3rem);">Admin access</h1>
+      <p class="lead" style="font-size: 0.95rem;">Please sign in to manage invitations and responses.</p>
+      <form id="loginForm" style="margin-top: 20px; text-align: left;">
+        <div class="field">
+          <label>Username
+            <input id="loginUser" type="text" autocomplete="username" required>
+          </label>
+        </div>
+        <div class="field">
+          <label>Password
+            <input id="loginPass" type="password" autocomplete="current-password" required>
+          </label>
+        </div>
+        <button class="btn full" type="submit">Enter</button>
+        <p id="loginError" class="tease" style="text-align:center;"></p>
+      </form>
+    </section>
+  </main>
+
+  <!-- Dashboard -->
+  <main class="admin-shell hidden" id="adminView">
+    <div class="admin-top">
+      <div>
+        <p class="eyebrow" style="margin:0;">Third Eye Admin</p>
+        <h1 class="script-letter">Your invitations</h1>
+      </div>
+      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <span class="badge" id="repoBadge"><span class="dot"></span> Repository not connected</span>
+        <button class="btn-ghost" id="connectBtn" type="button">Connect repository</button>
+        <button class="btn-ghost" id="logoutBtn" type="button">Log out</button>
+      </div>
+    </div>
+
+    <div class="notice" id="connectNotice">
+      To add girls and read responses, click <strong>Connect repository</strong> and pick this
+      project's folder on your computer. The Admin will then create folders, save images, and update the
+      XML files directly. After changes, commit &amp; push with git. (Works in Chrome or Edge on desktop.)
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="girls" type="button">Girls</button>
+      <button class="tab" data-tab="responses" type="button">Responses</button>
+      <button class="tab" data-tab="add" type="button">Add a girl</button>
+    </div>
+
+    <!-- Girls panel -->
+    <section class="panel active" id="panel-girls">
+      <div id="girlsList" class="girl-list"></div>
+      <div id="girlsEmpty" class="empty hidden">No girls loaded yet. Connect the repository to see them.</div>
+    </section>
+
+    <!-- Responses panel -->
+    <section class="panel" id="panel-responses">
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px;">
+        <button class="btn-ghost" id="refreshResponses" type="button">Refresh</button>
+        <button class="btn-ghost" id="exportCsv" type="button">Export CSV</button>
+        <button class="btn-ghost" id="importLocal" type="button">Import answers from this browser</button>
+      </div>
+
+      <div class="notice">
+        <strong>Add an answer by code:</strong> paste the answer code a girl sent you (the
+        <em>Answer code</em> from her message) and pick her name to save it into her responses file.
+      </div>
+      <div class="grid-2" style="margin-bottom:18px;">
+        <div class="field">
+          <label>Answer code
+            <input id="importCode" type="text" placeholder="paste the code here">
+          </label>
+        </div>
+        <div class="field" style="display:flex; align-items:flex-end; gap:10px;">
+          <button class="btn full" id="importCodeBtn" type="button">Save this answer</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table id="responsesTable">
+          <thead>
+            <tr><th>Girl</th><th>Answer</th><th>Date &amp; time wanted</th><th>Treat</th><th>Mood</th><th>Note</th><th>Submitted</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div id="responsesEmpty" class="empty hidden">No responses yet.</div>
+    </section>
+
+    <!-- Add girl panel -->
+    <section class="panel" id="panel-add">
+      <form id="addForm">
+        <div class="grid-2">
+          <div class="field">
+            <label>Girl's name *
+              <input id="addName" type="text" placeholder="e.g. Sanduni" required>
+            </label>
+            <p class="hint">Shown on her page. Used in the headline by default.</p>
+          </div>
+          <div class="field">
+            <label>Folder / link name *
+              <input id="addSlug" type="text" placeholder="e.g. Sanduni-Kamburadeniya" required>
+            </label>
+            <p class="hint" id="slugPreview">Her link will be shown here.</p>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Photos (jpg / png) *
+            <input id="addImages" type="file" accept="image/png,image/jpeg" multiple required>
+          </label>
+          <p class="hint">First photo is the big one. Up to 5 are used (main, two floating, polaroid, finale).</p>
+          <div class="thumbs" id="addThumbs"></div>
+        </div>
+
+        <details style="margin-bottom:16px;">
+          <summary style="cursor:pointer; font-weight:800; color:var(--rose-dark);">Optional: contact + custom words (otherwise a general template is used)</summary>
+          <div style="margin-top:14px;">
+            <div class="grid-2">
+              <div class="field">
+                <label>Your WhatsApp number (for her reply)
+                  <input id="addWhatsapp" type="text" placeholder="e.g. 9477xxxxxxx">
+                </label>
+                <p class="hint">Country code + number, digits only. Leave empty to use email or download instead.</p>
+              </div>
+              <div class="field">
+                <label>Your email (fallback reply)
+                  <input id="addEmail" type="email" placeholder="you@example.com">
+                </label>
+              </div>
+            </div>
+            <div class="field">
+              <label>Headline
+                <input id="addHeadline" type="text" placeholder="{name}, your smile deserves a beautiful date.">
+              </label>
+            </div>
+            <div class="field">
+              <label>Intro
+                <textarea id="addIntro" placeholder="Leave empty for the general sweet intro."></textarea>
+              </label>
+            </div>
+            <div class="field">
+              <label>The question
+                <input id="addQuestion" type="text" placeholder="Will you go on a date with me?">
+              </label>
+            </div>
+          </div>
+        </details>
+
+        <button class="btn full" type="submit" id="addSubmit">Create her page</button>
+        <p class="hint" id="addStatus" style="text-align:center; margin-top:12px;"></p>
+      </form>
+    </section>
+  </main>
+
+  <div class="toast" id="toast"></div>
+  <script src="../../assets/js/admin.js"></script>
+</body>
+</html>

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A little invitation</title>
+  <meta name="robots" content="noindex">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/main.css">
+</head>
+<body>
+  <div class="aurora aurora-one"></div>
+  <div class="aurora aurora-two"></div>
+  <div class="petals" aria-hidden="true"></div>
+
+  <main class="app hidden" id="app">
+    <section class="hero card reveal">
+      <div class="hero-text">
+        <p class="eyebrow" data-field="eyebrow"></p>
+        <h1 class="script-letter" data-field="headline"></h1>
+        <p class="hero-copy lead" data-field="intro"></p>
+        <button class="btn" data-scroll-to="invitation">Open the surprise</button>
+      </div>
+      <div class="photo-stage" id="photoStage" aria-label="Photos"></div>
+    </section>
+
+    <section class="card memory reveal">
+      <p class="eyebrow">Reasons this page exists</p>
+      <div class="memory-grid" id="memoryGrid"></div>
+    </section>
+
+    <section id="invitation" class="card invitation reveal">
+      <div class="mini-polaroid">
+        <img id="polaroidImg" alt="">
+        <span data-field="polaroidCaption"></span>
+      </div>
+      <p class="eyebrow">Question from my heart</p>
+      <h2 class="script-letter" data-field="question"></h2>
+      <p class="soft-text" data-field="questionSub"></p>
+      <div class="answer-row">
+        <button id="yesBtn" class="btn">Yes, I will</button>
+        <button id="noBtn" class="btn-ghost" type="button">No</button>
+      </div>
+      <p id="teaseText" class="tease" aria-live="polite"></p>
+    </section>
+
+    <section id="datePlan" class="card date-plan hidden" aria-live="polite">
+      <p class="eyebrow">Our tiny plan</p>
+      <h2 class="script-letter" data-field="planTitle"></h2>
+      <form id="planForm" class="plan-form">
+        <label>Pick a day
+          <input id="dateInput" type="date" required>
+        </label>
+        <label>Pick a time
+          <input id="timeInput" type="time" required>
+        </label>
+        <fieldset>
+          <legend>What should we enjoy?</legend>
+          <div class="choice-grid" data-choice-group="treat">
+            <button type="button" data-value="coffee and a sweet dessert">Coffee + dessert</button>
+            <button type="button" data-value="pizza and lots of laughing">Pizza</button>
+            <button type="button" data-value="ice cream and a slow walk">Ice cream walk</button>
+            <button type="button" data-value="a romantic dinner">Dinner</button>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Choose the mood</legend>
+          <div class="choice-grid" data-choice-group="mood">
+            <button type="button" data-value="soft, calm, and romantic">Soft romantic</button>
+            <button type="button" data-value="funny, playful, and full of smiles">Funny and cute</button>
+            <button type="button" data-value="surprising and unforgettable">Surprise me</button>
+          </div>
+        </fieldset>
+        <label>A little message (optional)
+          <textarea id="noteInput" placeholder="Anything you want to tell me..."></textarea>
+        </label>
+        <button class="btn full" type="submit">Seal this plan</button>
+      </form>
+    </section>
+
+    <section id="finalCard" class="card finale hidden">
+      <img id="finaleImg" alt="">
+      <p class="eyebrow">My promise</p>
+      <h2 class="script-letter" data-field="finaleTitle"></h2>
+      <p id="finalMessage"></p>
+      <a id="replyLink" class="btn full" target="_blank" rel="noopener">Send me your answer</a>
+      <button id="downloadBtn" class="btn-ghost full hidden" type="button">Save my answer</button>
+      <button id="restartBtn" class="btn-ghost" type="button">Read it again</button>
+    </section>
+  </main>
+
+  <main class="landing hidden" id="missing">
+    <section class="card reveal">
+      <span class="brand-mark">&hearts;</span>
+      <p class="eyebrow">The next step of my life</p>
+      <h1 class="script-letter">Something lovely lives here.</h1>
+      <p class="lead">If you were sent a personal link, please open that exact link to see the page made for you.</p>
+    </section>
+  </main>
+
+  <script src="../assets/js/effects.js"></script>
+  <script src="../assets/js/girl.js"></script>
+</body>
+</html>
