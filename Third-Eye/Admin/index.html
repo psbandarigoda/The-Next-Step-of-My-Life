@@ -53,9 +53,10 @@
     </div>
 
     <div class="notice" id="connectNotice">
-      To add girls and read responses, click <strong>Connect repository</strong> and pick this
-      project's folder on your computer. The Admin will then create folders, save images, and update the
-      XML files directly. After changes, commit &amp; push with git. (Works in Chrome or Edge on desktop.)
+      Girls and published responses load from the central XML files. To add girls or save new responses
+      into the repository XML, click <strong>Connect repository</strong> and pick this project's folder on your computer.
+      Same-browser submissions will be saved automatically after connection. After changes, commit &amp; push with git.
+      (Works in Chrome or Edge on desktop.)
     </div>
 
     <div class="tabs">
@@ -67,7 +68,7 @@
     <!-- Girls panel -->
     <section class="panel active" id="panel-girls">
       <div id="girlsList" class="girl-list"></div>
-      <div id="girlsEmpty" class="empty hidden">No girls loaded yet. Connect the repository to see them.</div>
+      <div id="girlsEmpty" class="empty hidden">No girls found in the central girls XML yet.</div>
     </section>
 
     <!-- Responses panel -->
@@ -79,8 +80,8 @@
       </div>
 
       <div class="notice">
-        <strong>Add an answer by code:</strong> paste the answer code a girl sent you (the
-        <em>Answer code</em> from her message) and pick her name to save it into her responses file.
+        Same-browser submissions are saved automatically when the repository is connected. If she submits
+        from another phone, paste the hidden answer code from her message here to save it into the central XML.
       </div>
       <div class="grid-2" style="margin-bottom:18px;">
         <div class="field">

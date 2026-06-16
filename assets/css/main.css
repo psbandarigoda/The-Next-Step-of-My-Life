@@ -192,6 +192,28 @@ h2 { font-size: clamp(2rem, 5vw, 4.4rem); }
   grid-template-columns: 0.95fr 1.05fr;
   gap: clamp(24px, 5vw, 64px);
 }
+
+body.surprise-locked {
+  overflow: hidden;
+}
+
+body.surprise-locked .app {
+  height: 100vh;
+  overflow: hidden;
+}
+
+body.surprise-locked .memory,
+body.surprise-locked .invitation,
+body.surprise-locked .date-plan,
+body.surprise-locked .finale {
+  display: none;
+}
+
+body.surprise-locked .hero {
+  min-height: calc(100vh - 84px);
+  margin-bottom: 0;
+}
+
 .hero-copy { max-width: 540px; margin: 22px 0 32px; }
 
 .photo-stage { position: relative; min-height: 560px; }

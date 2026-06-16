@@ -6,6 +6,7 @@
 
   // NOTE: This is a light gate for a private link, not real security.
   const CREDENTIALS = { user: "root", pass: "root" };
+  const SEEDED_GIRLS = [{ name: "Sanduni", slug: "sanduni-kamburadeniya" }];
 
   let rootHandle = null; // FileSystemDirectoryHandle for the repo root
 
@@ -68,6 +69,7 @@
       rootHandle = handle;
       await saveHandle(handle);
       markConnected();
+      await autoImportLocalResponses(true);
       await loadGirls();
       await loadResponses();
       toast("Repository connected.", "ok");
@@ -147,23 +149,27 @@
     } catch (_) {
       /* assets missing */
     }
-    return slugs.sort();
+    if (!slugs.length) {
+      return fetchGirlRegistry().then((girls) => girls.map((g) => g.slug).sort());
+    }
+    return Array.from(new Set(slugs)).sort();
   }
 
   async function fetchGirlRegistry() {
     try {
       const res = await fetch("../../assets/girls.xml", { cache: "no-store" });
-      if (!res.ok) return [];
+      if (!res.ok) return SEEDED_GIRLS;
       const xml = parseXml(await res.text());
-      if (!xml) return [];
-      return Array.from(xml.querySelectorAll("girl"))
+      if (!xml) return SEEDED_GIRLS;
+      const girls = Array.from(xml.querySelectorAll("girl"))
         .map((girl) => ({
           name: childText(girl, "name"),
           slug: childText(girl, "slug"),
         }))
         .filter((girl) => girl.slug);
+      return girls.length ? girls : SEEDED_GIRLS;
     } catch (_) {
-      return [];
+      return SEEDED_GIRLS;
     }
   }
 
@@ -225,7 +231,7 @@
       const central = await readCentralResponses();
       return central.filter((r) => r.slug === slug).length;
     }
-    const central = await fetchCentralResponses();
+    const central = await readVisibleResponses();
     return central.filter((r) => r.slug === slug).length;
   }
 
@@ -236,11 +242,17 @@
 
   /* ---------------- responses report ---------------- */
   $("refreshResponses").addEventListener("click", () => {
-    if (requireRepo()) loadResponses();
+    loadResponses();
   });
   $("exportCsv").addEventListener("click", exportCsv);
   $("importLocal").addEventListener("click", importFromBrowser);
   $("importCodeBtn").addEventListener("click", importFromCode);
+  window.addEventListener("storage", (event) => {
+    if (event.key === "tns:responses") autoImportLocalResponses(true);
+  });
+  setInterval(() => {
+    if (readLocalResponses().length) autoImportLocalResponses(true);
+  }, 3000);
 
   let lastRows = [];
 
@@ -248,7 +260,7 @@
     const tbody = $("responsesTable").querySelector("tbody");
     const empty = $("responsesEmpty");
     tbody.innerHTML = "";
-    lastRows = rootHandle ? await readCentralResponses() : await fetchCentralResponses();
+    lastRows = await readVisibleResponses();
 
     lastRows.sort((a, b) => (b.submittedAt || "").localeCompare(a.submittedAt || ""));
 
@@ -273,6 +285,17 @@
     });
   }
 
+  async function readVisibleResponses() {
+    const saved = rootHandle ? await readCentralResponses() : await fetchCentralResponses();
+    const local = readLocalResponses();
+    const unique = new Map();
+    saved.concat(local).forEach((row) => {
+      const key = `${row.slug}|${row.submittedAt}|${row.date}|${row.time}|${row.treat}|${row.mood}|${row.note}`;
+      unique.set(key, row);
+    });
+    return Array.from(unique.values());
+  }
+
   async function readCentralResponses() {
     try {
       const assets = await getDir(["assets"]);
@@ -287,6 +310,14 @@
       const res = await fetch("../../assets/responses.xml", { cache: "no-store" });
       if (!res.ok) return [];
       return parseResponsesXml(await res.text());
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function readLocalResponses() {
+    try {
+      return JSON.parse(localStorage.getItem("tns:responses") || "[]");
     } catch (_) {
       return [];
     }
@@ -327,16 +358,22 @@
 
   async function importFromBrowser() {
     if (!requireRepo()) return;
-    let stored = [];
-    try {
-      stored = JSON.parse(localStorage.getItem("tns:responses") || "[]");
-    } catch (_) {
-      stored = [];
+    await autoImportLocalResponses(false);
+  }
+
+  async function autoImportLocalResponses(silent) {
+    if (!rootHandle) {
+      await loadResponses();
+      await loadGirls();
+      return 0;
     }
+
+    const stored = readLocalResponses();
     if (!stored.length) {
-      toast("No answers saved in this browser.", "error");
-      return;
+      if (!silent) toast("No answers saved in this browser.", "error");
+      return 0;
     }
+
     let added = 0;
     for (const r of stored) {
       if (await appendResponse(r)) added += 1;
@@ -344,7 +381,15 @@
     localStorage.removeItem("tns:responses");
     await loadResponses();
     await loadGirls();
-    toast(`${added} answer${added === 1 ? "" : "s"} imported.`, "ok");
+
+    if (added && !silent) {
+      toast(`${added} answer${added === 1 ? "" : "s"} saved into central XML.`, "ok");
+    } else if (added && silent) {
+      toast(`${added} new answer${added === 1 ? "" : "s"} auto-saved.`, "ok");
+    } else if (!silent) {
+      toast("No answers could be imported.", "error");
+    }
+    return added;
   }
 
   async function importFromCode() {
@@ -390,6 +435,9 @@
     if (!text || !text.includes("</responses>")) {
       text = '<?xml version="1.0" encoding="UTF-8"?>\n<responses>\n</responses>\n';
     }
+    if (parseResponsesXml(text).some((existing) => responseKey(existing) === responseKey(r))) {
+      return true;
+    }
     const snippet = responseSnippet(r);
     text = text.replace("</responses>", `${snippet}\n</responses>`);
     await writeTextFile(assetsDir, "responses.xml", text);
@@ -401,6 +449,9 @@
     let text = await readTextFile(assetsDir, "responses.xml");
     if (!text || !text.includes("</responses>")) {
       text = '<?xml version="1.0" encoding="UTF-8"?>\n<responses>\n</responses>\n';
+    }
+    if (parseResponsesXml(text).some((existing) => responseKey(existing) === responseKey(r))) {
+      return;
     }
     text = text.replace("</responses>", `${responseSnippet(r)}\n</responses>`);
     await writeTextFile(assetsDir, "responses.xml", text);
@@ -418,6 +469,10 @@
     <mood>${xmlEsc(r.mood)}</mood>
     <note>${xmlEsc(r.note)}</note>
   </response>`;
+  }
+
+  function responseKey(r) {
+    return `${r.slug || ""}|${r.submittedAt || ""}|${r.date || ""}|${r.time || ""}|${r.treat || ""}|${r.mood || ""}|${r.note || ""}`;
   }
 
   /* ---------------- add a girl ---------------- */

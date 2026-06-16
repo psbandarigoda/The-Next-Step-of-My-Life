@@ -6,6 +6,8 @@
   const missing = document.getElementById("missing");
 
   const slug = resolveSlug();
+  document.body.classList.add("surprise-locked");
+
   if (!slug) {
     showMissing();
     return;
@@ -30,6 +32,7 @@
   }
 
   function showMissing() {
+    document.body.classList.remove("surprise-locked");
     if (app) app.classList.add("hidden");
     if (missing) missing.classList.remove("hidden");
   }
@@ -170,6 +173,7 @@
 
     document.querySelectorAll("[data-scroll-to]").forEach((b) => {
       b.addEventListener("click", () => {
+        document.body.classList.remove("surprise-locked");
         document.getElementById(b.dataset.scrollTo)?.scrollIntoView({ behavior: "smooth", block: "center" });
       });
     });
